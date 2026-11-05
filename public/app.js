@@ -1,3 +1,5 @@
+import { createSwarmField } from './swarm-field.mjs';
+
 const $ = (id) => document.getElementById(id);
 const API_BASE = new URL('./api/', import.meta.url);
 const endpoint = (path) => new URL(path.replace(/^\/?api\/?/, ''), API_BASE);
@@ -9,12 +11,12 @@ const presets = {
   build: 'Plan a tiny, accessible community garden directory. Divide the product, data, and usability questions, then bring back one coherent proposal.',
 };
 const terminal = new Set(['completed', 'failed', 'cancelled', 'interrupted']);
-const colors = ['#d5f673', '#baa5df', '#eab68d', '#9ed2bf', '#e8d489', '#b9c8f0', '#d9a4b8'];
 let config = null;
 let browserOnly = false;
 let runs = [];
 let currentRun = null;
 let selectedNode = null;
+let inspectorCache = null;
 let localTimer = null;
 let refreshTimer = null;
 let events = null;
@@ -23,6 +25,17 @@ let initializing = true;
 let runtimeUnreachable = false;
 let connectionBusy = false;
 let expiryTimer = null;
+let motionPaused = false;
+const field = createSwarmField({
+  stage: $('star-map'),
+  canvas: $('swarm-canvas'),
+  nodesLayer: $('map-nodes'),
+  onSelect: (node) => {
+    const id = typeof node === 'string' ? node : node?.id;
+    if (id) selectCrew(id);
+    else openDialog('crew-dialog');
+  },
+});
 
 function el(tag, className, text) {
   const element = document.createElement(tag);
@@ -35,6 +48,18 @@ function textValue(value) {
   return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
 }
 function notify(message) { $('app-notice').textContent = message; }
+function openDialog(id) {
+  const dialog = $(id);
+  if (!dialog) return;
+  document.querySelectorAll('dialog[open]').forEach((other) => { if (other !== dialog) other.close(); });
+  if (!dialog.open) dialog.showModal();
+}
+function selectCrew(id) {
+  if (!currentRun?.nodes.some((node) => node.id === id)) return;
+  selectedNode = id;
+  renderMap(); renderInspector(); renderCrew();
+  openDialog('crew-dialog');
+}
 async function api(path, options = {}) {
   const response = await fetch(endpoint(path), { credentials: 'same-origin', ...options, headers: { 'Content-Type': 'application/json', ...(config?.token ? { 'X-Flight-Token': config.token } : {}), ...options.headers } });
   const data = await response.json();
@@ -76,7 +101,7 @@ function applyConfig(next) {
   $('local-connection').hidden = hosted;
   $('power-drive').hidden = !hosted || !!connection;
   $('connection-label').textContent = hosted ? connection ? `${providerName(connection.provider)} connected` : 'Power the drive' : config.adapters.codex?.available ? 'Codex installed' : 'Simulator connected';
-  $('connection-detail').textContent = hosted ? connection ? 'Your API account is connected for this temporary session. Choose a model on the flight deck, then set a course.' : 'Connect your own API account. Your crew uses that provider’s models, with usage billed to you.' : config.adapters.codex?.detail || 'Install Codex CLI and sign in to enable local agents. Model access is checked on launch.';
+  $('connection-detail').textContent = hosted ? connection ? 'Your API account is connected for this temporary session. Choose a model in Flight settings, then set a course.' : 'Connect your own API account. Your crew uses that provider’s models, with usage billed to you.' : config.adapters.codex?.detail || 'Install Codex CLI and sign in to enable local agents. Model access is checked on launch.';
   $('connected-summary').hidden = !connection;
   $('connect-form').hidden = !!connection;
   $('connected-provider').textContent = connection ? `${providerName(connection.provider)} · connected` : '';
@@ -117,6 +142,7 @@ function applyConfig(next) {
 }
 function updateMode() {
   const live = document.querySelector('input[name="mode"]:checked')?.value !== 'demo';
+  $('composer-mode').textContent = live ? config?.hosted ? `Live ${providerName(config.connection?.provider)} · billed to you` : 'Live Codex · account usage' : 'Simulator · no model calls';
   $('mode-note').textContent = live ? config?.hosted ? 'Real API calls, billed by your provider. Text work; no browsing or file tools.' : 'Real Codex sessions. Your account usage applies. Read-only text work.' : browserOnly ? 'Browser-only simulation. Scripted crew, no AI calls, no charges.' : 'A scripted demo of delegation. No AI calls, no charges.';
   $('launch-note').textContent = live ? config?.hosted ? 'Your API account. Bounded crew. Real model usage.' : 'Local agents. Bounded crew. Real model usage.' : 'A small step for your to-do list.';
   $('model-control').hidden = !config?.hosted || !config.connection || !live;
@@ -126,7 +152,7 @@ function updateControls() {
   $('launch-button').disabled = !!busy;
   $('cancel-button').hidden = !active();
   $('cancel-button').disabled = false;
-  $('launch-button').firstElementChild.textContent = initializing ? 'Checking the flight deck…' : runtimeUnreachable ? 'Connection interrupted' : launching ? 'Preparing the ship…' : active() ? 'Crew out exploring…' : 'Engage improbability drive';
+  $('launch-button').firstElementChild.textContent = initializing ? 'Connecting…' : runtimeUnreachable ? 'Connection interrupted' : launching ? 'Preparing…' : active() ? 'Crew at work' : 'Engage drive';
   $('task').disabled = !!busy;
   document.querySelectorAll('[data-preset], #max-agents, #max-depth, input[name="mode"]').forEach((input) => {
     input.disabled = !!busy || (input.id === 'codex-mode' && !liveAvailable());
@@ -138,80 +164,50 @@ function updateControls() {
   $('disconnect-button').textContent = active() ? 'Disconnect & stop crew' : 'Disconnect';
   $('connect-submit').firstElementChild.textContent = connectionBusy ? 'Checking your drive…' : 'Connect the drive';
 }
-function layoutNodes(nodes) {
-  const positions = new Map();
-  const nodeIds = new Set(nodes.map((node) => node.id));
-  const roots = nodes.filter((node) => !node.parentId || !nodeIds.has(node.parentId));
-  const children = (node) => nodes.filter((other) => other.parentId === node.id);
-  const weight = (node, visited = new Set()) => {
-    if (visited.has(node.id)) return 1;
-    visited.add(node.id);
-    const descendants = children(node);
-    return descendants.length ? descendants.reduce((sum, child) => sum + weight(child, visited), 0) : 1;
-  };
-  function place(node, left, right, depth) {
-    if (positions.has(node.id)) return;
-    positions.set(node.id, { x: (left + right) / 2, y: 18 + Math.min(depth, 2) * 31 });
-    const descendants = children(node);
-    const total = descendants.reduce((sum, child) => sum + weight(child), 0);
-    let cursor = left;
-    descendants.forEach((child) => {
-      const width = (right - left) * weight(child) / total;
-      place(child, cursor, cursor + width, depth + 1);
-      cursor += width;
-    });
-  }
-  roots.forEach((node, index) => place(node, 5 + index * 90 / roots.length, 5 + (index + 1) * 90 / roots.length, 0));
-  return positions;
-}
 function renderMap() {
   const nodes = currentRun?.nodes || [];
-  const focusedAgent = document.activeElement?.dataset?.agentId;
-  $('map-empty').hidden = nodes.length > 0;
-  $('map-nodes').replaceChildren();
-  $('map-lines').replaceChildren();
-  const positions = layoutNodes(nodes);
-  nodes.forEach((node, index) => {
-    const pos = positions.get(node.id);
-    if (!pos) return;
-    if (node.parentId && positions.has(node.parentId)) {
-      const from = positions.get(node.parentId);
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      const x1 = from.x * 6.2, y1 = from.y * 4.8 + 15, x2 = pos.x * 6.2, y2 = pos.y * 4.8 - 13;
-      path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`);
-      if (node.status === 'completed') path.setAttribute('class', 'complete');
-      $('map-lines').append(path);
-    }
-    const button = el('button', `agent-node${selectedNode === node.id ? ' selected' : ''}`);
+  document.body.classList.toggle('has-run', !!currentRun);
+  field.update({ nodes, runId: currentRun?.id || null, status: currentRun?.status || 'idle', selectedNode });
+  $('crew-count').textContent = currentRun ? `${nodes.length} crew aboard` : 'Your crew starts with a mission';
+  if ($('run-state')) {
+    $('run-state').textContent = (currentRun?.status || 'standby').toUpperCase();
+    $('run-state').dataset.state = currentRun?.status || 'standby';
+  }
+  $('map-mode').textContent = currentRun ? currentRun.mode === 'api' ? `Live ${providerName(currentRun.provider)} · real API calls` : currentRun.mode === 'codex' ? 'Live Codex · real sessions' : browserOnly ? 'Browser simulation · no model calls' : 'Flight simulator · no model calls' : 'Visual rehearsal · no model calls';
+  if ($('map-title')) $('map-title').textContent = !currentRun ? 'A little space to think.' : currentRun.status === 'completed' ? 'The crew is home.' : currentRun.status === 'cancelled' ? 'Safely out of hyperspace.' : currentRun.status === 'failed' ? 'A disturbance in the field.' : currentRun.status === 'interrupted' ? 'Flight interrupted.' : 'Good ideas travel together.';
+}
+function renderCrew() {
+  const nodes = currentRun?.nodes || [];
+  if (!nodes.length) {
+    $('crew-roster').replaceChildren(el('p', 'muted', 'The cursors on standby are a visual rehearsal. Launch a mission to meet its actual crew.'));
+    return;
+  }
+  const focusedId = document.activeElement?.dataset?.crewId;
+  const list = el('ul', 'crew-list');
+  nodes.forEach((node) => {
+    const item = el('li');
+    const button = el('button', 'crew-choice');
     button.type = 'button';
-    button.style.left = `${pos.x}%`;
-    button.style.top = `${pos.y}%`;
-    button.style.setProperty('--agent-color', colors[index % colors.length]);
-    button.dataset.state = node.status;
-    button.dataset.agentId = node.id;
-    button.setAttribute('aria-label', `${node.name || 'Agent'}: ${node.role || 'crew'}, ${node.status}. Inspect task.`);
-    button.setAttribute('aria-pressed', selectedNode === node.id ? 'true' : 'false');
-    const cursor = el('span', 'cursor-shape');
-    cursor.setAttribute('aria-hidden', 'true');
-    const label = el('span');
-    label.append(el('span', 'agent-name', node.name || 'Agent'));
-    const role = el('span', 'agent-role');
-    role.append(el('i', 'node-status'), document.createTextNode(node.status === 'running' ? 'Working' : node.status === 'waiting' ? 'Waiting on crew' : node.status));
-    label.append(role);
-    button.append(cursor, label);
-    button.addEventListener('click', () => { selectedNode = node.id; renderMap(); renderInspector(); });
-    $('map-nodes').append(button);
-    if (focusedAgent === node.id) button.focus({ preventScroll: true });
+    button.dataset.crewId = node.id;
+    button.setAttribute('aria-pressed', String(selectedNode === node.id));
+    button.append(el('span', 'crew-choice-name', node.name || 'Crew member'), el('span', 'crew-choice-detail', `${node.role || 'Agent'} · ${node.status}`));
+    button.addEventListener('click', () => selectCrew(node.id));
+    item.append(button); list.append(item);
   });
-  $('crew-count').textContent = `${nodes.length} crew aboard`;
-  $('run-state').textContent = (currentRun?.status || 'standby').toUpperCase();
-  $('run-state').dataset.state = currentRun?.status || 'standby';
-  $('map-mode').textContent = currentRun ? currentRun.mode === 'api' ? `LIVE ${providerName(currentRun.provider).toUpperCase()} / REAL API CALLS` : currentRun.mode === 'codex' ? 'LIVE CODEX / REAL SESSIONS' : browserOnly ? 'BROWSER-ONLY / SCRIPTED DEMO' : 'FLIGHT SIMULATOR / SCRIPTED DEMO' : browserOnly ? 'BROWSER-ONLY SIMULATOR' : config?.hosted ? 'HOSTED FLIGHT DECK / READY' : 'SIMULATOR READY';
-  $('map-title').textContent = !currentRun ? 'A little space to think.' : currentRun.status === 'completed' ? 'The crew is home.' : currentRun.status === 'cancelled' ? 'Safely out of hyperspace.' : currentRun.status === 'failed' ? 'A disturbance in the field.' : currentRun.status === 'interrupted' ? 'Flight interrupted.' : 'Good ideas travel together.';
+  $('crew-roster').replaceChildren(list);
+  if (focusedId) [...list.querySelectorAll('button')].find((button) => button.dataset.crewId === focusedId)?.focus({ preventScroll: true });
 }
 function renderInspector() {
+  if (inspectorCache?.runId !== currentRun?.id) inspectorCache = null;
   const node = currentRun?.nodes.find((item) => item.id === selectedNode);
-  if (!node) { $('inspector').replaceChildren(idleInspector.cloneNode(true)); return; }
+  if (!node) { inspectorCache = null; $('inspector').replaceChildren(idleInspector.cloneNode(true)); return; }
+  const parent = currentRun.nodes.find((item) => item.id === node.parentId);
+  const signature = JSON.stringify([node.name, node.role, node.status, node.task, node.summary, node.result, node.depth, parent?.id, parent?.name]);
+  const sameNode = inspectorCache?.nodeId === node.id;
+  if (sameNode && inspectorCache.signature === signature) return;
+  const previousContribution = $('inspector').querySelector('.contribution');
+  const disclosureOpen = sameNode && !!previousContribution?.open;
+  const restoreSummaryFocus = sameNode && previousContribution?.querySelector('summary') === document.activeElement;
   const wrap = el('div', 'agent-detail');
   const avatar = el('div', 'inspector-avatar');
   avatar.append(el('span', 'cursor-shape'));
@@ -221,12 +217,14 @@ function renderInspector() {
   wrap.append(el('p', 'detail-summary', textValue(node.summary || node.result || (node.status === 'waiting' ? 'Waiting for delegated work to return.' : node.status === 'queued' ? 'Waiting for a crew slot.' : 'No result yet. The ship’s log records progress.'))));
   if (node.result && node.result !== node.summary) {
     const contribution = el('details', 'contribution');
+    contribution.open = disclosureOpen;
     contribution.append(el('summary', '', 'Read full contribution'), el('pre', '', textValue(node.result)));
     wrap.append(contribution);
   }
-  const parent = currentRun.nodes.find((item) => item.id === node.parentId);
   wrap.append(el('p', 'detail-meta', `${parent ? `Delegated by ${parent.name}` : 'Mission lead'} · Depth ${node.depth || 0}`));
   $('inspector').replaceChildren(wrap);
+  inspectorCache = { runId: currentRun.id, nodeId: node.id, signature };
+  if (restoreSummaryFocus) wrap.querySelector('.contribution summary')?.focus({ preventScroll: true });
 }
 function eventDescription(event) {
   const data = event.data || {};
@@ -250,6 +248,8 @@ function eventDescription(event) {
 }
 function renderLog() {
   const log = currentRun?.events || [];
+  const latest = log.length ? eventDescription(log.at(-1)).replace(/\s+/g, ' ').trim() : 'A small crew. A wide-open universe.';
+  $('latest-transmission').textContent = latest.length > 180 ? `${latest.slice(0, 177)}…` : latest;
   $('log-count').textContent = `${String(log.length).padStart(2, '0')} EVENTS`;
   if (!log.length) { const row = el('li', 'empty-log'); row.append(el('time', '', '—'), el('span', '', 'All systems pleasantly uneventful. Awaiting a mission.')); $('ship-log').replaceChildren(row); return; }
   const items = log.slice(-40).reverse().map((event) => {
@@ -268,9 +268,11 @@ function renderHistory() {
       if (active() && currentRun.id !== run.id) { notify('Let the current crew return, or stop the run, before opening another flight.'); return; }
       try {
         currentRun = browserOnly ? run : await api(`/api/runs/${encodeURIComponent(run.id)}`);
+        $('task').value = currentRun.task || '';
         selectedNode = currentRun.nodes?.[0]?.id;
         notify('');
         render();
+        $('history-dialog').close();
       } catch (error) { notify(error.message); }
     });
     return button;
@@ -279,6 +281,7 @@ function renderHistory() {
 }
 function renderResult() {
   const done = currentRun && terminal.has(currentRun.status);
+  $('report-open').hidden = !done;
   $('result-section').hidden = !done;
   if (!done) return;
   const result = textValue(currentRun.result);
@@ -287,7 +290,7 @@ function renderResult() {
   $('result-content').textContent = result || textValue(currentRun.error) || 'No final result was produced. Individual crew outputs and events are available in the flight receipt.';
   $('download-result').disabled = !result;
 }
-function render() { renderMap(); renderInspector(); renderLog(); renderHistory(); renderResult(); updateControls(); }
+function render() { renderMap(); renderInspector(); renderCrew(); renderLog(); renderHistory(); renderResult(); updateControls(); }
 async function refreshRun() {
   if (!currentRun || browserOnly) return;
   const id = currentRun.id;
@@ -321,7 +324,7 @@ function listen() {
     } catch { /* Ignore non-protocol heartbeat messages. */ }
   };
   events.onerror = () => {
-    if (active()) notify('Reconnecting to the local flight deck. The display may be stale; agents may still be running.');
+    if (active()) notify('Reconnecting to the flight deck. The display may be stale; agents may still be running.');
   };
   events.onopen = () => { notify(''); refreshRun(); };
 }
@@ -439,7 +442,7 @@ $('mission-form').addEventListener('submit', async (event) => {
       remember(currentRun);
     }
     render();
-    if (window.innerWidth < 590) $('map-title').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    if (window.innerWidth < 590) $('star-map').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   } catch (error) { notify(`Unable to launch: ${error.message}`); }
   finally { launching = false; updateControls(); }
 });
@@ -458,9 +461,16 @@ $('cancel-button').addEventListener('click', async () => {
 });
 document.querySelectorAll('[data-preset]').forEach((button) => button.addEventListener('click', () => { $('task').value = presets[button.dataset.preset]; $('task').focus(); }));
 document.querySelectorAll('input[name="mode"]').forEach((input) => input.addEventListener('change', updateMode));
-['guide-open', 'about-open', 'footer-guide'].forEach((id) => $(id).addEventListener('click', () => $('guide-dialog').showModal()));
-$('connect-open').addEventListener('click', () => $('connect-dialog').showModal());
-$('power-drive').addEventListener('click', () => $('connect-dialog').showModal());
+['guide-open', 'about-open', 'footer-guide'].forEach((id) => $(id)?.addEventListener('click', () => openDialog('guide-dialog')));
+for (const [button, dialog] of [['history-open', 'history-dialog'], ['log-open', 'log-dialog'], ['crew-open', 'crew-dialog'], ['report-open', 'report-dialog'], ['settings-open', 'settings-dialog'], ['connect-open', 'connect-dialog'], ['power-drive', 'connect-dialog']]) {
+  $(button)?.addEventListener('click', () => openDialog(dialog));
+}
+$('motion-toggle').addEventListener('click', () => {
+  motionPaused = !motionPaused;
+  field.setPaused(motionPaused);
+  $('motion-toggle').setAttribute('aria-pressed', String(motionPaused));
+  $('motion-toggle').textContent = motionPaused ? 'Resume motion' : 'Pause motion';
+});
 $('provider-select').addEventListener('change', () => { $('provider-key').value = ''; $('connect-error').textContent = ''; updateProviderHelp(); });
 $('connect-dialog').addEventListener('close', () => { $('provider-key').value = ''; $('workspace-id').value = ''; });
 $('connect-dialog').addEventListener('cancel', () => { $('provider-key').value = ''; $('workspace-id').value = ''; });
@@ -481,7 +491,7 @@ $('connect-form').addEventListener('submit', async (event) => {
     if (liveAvailable()) $('codex-mode').checked = true;
     $('connect-error').textContent = '';
     $('connect-dialog').close();
-    notify('Your drive is connected. Choose a model and give the crew a mission. API usage is billed to your provider account.');
+    notify('Your drive is connected. Choose a model in Flight settings, then give the crew a mission. API usage is billed to your provider account.');
     updateMode(); render();
   } catch (error) { $('connect-error').textContent = `Could not connect: ${error.message} Your key field has been cleared.`; }
   finally { payload.key = ''; connectionBusy = false; updateControls(); }
@@ -526,5 +536,6 @@ $('refresh-history').addEventListener('click', async () => {
   } catch (error) { notify(error.message); }
 });
 window.addEventListener('beforeunload', () => { $('provider-key').value = ''; if (browserOnly) persistLocal(); events?.close(); });
-updateControls();
+window.addEventListener('pagehide', (event) => { if (!event.persisted) field.destroy(); });
+render();
 initialize();

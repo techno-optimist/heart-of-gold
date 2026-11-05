@@ -23,7 +23,7 @@ This alpha produces text deliverables. It does **not** edit repositories, merge 
 
 ## Hosted flight deck
 
-Choose **Power the drive**, select OpenAI, Claude, or Grok, and supply your own API key. The backend checks the provider's model listing and returns candidate text models. Choose a model, select **Live agents**, and launch a small mission. Model-list access is not proof that every returned model will complete a mission: permissions, request compatibility, quota, and billing are checked during actual requests.
+Choose **Power the drive**, select OpenAI, Claude, or Grok, and supply your own API key. The backend checks the provider's model listing and returns candidate text models. Open **Flight settings** to choose a model and **Live agents**, then launch a small mission. Model-list access is not proof that every returned model will complete a mission: permissions, request compatibility, quota, and billing are checked during actual requests.
 
 API access is separate from consumer chat access. A ChatGPT, Claude, or Grok subscription does not automatically supply an API key or API credit; eligible credit offers still need provider API setup. This version implements API-key access, **not** consumer-account OAuth or imported chat cookies. See [provider access](docs/provider-access.md) for official account links and current distinctions.
 
@@ -47,7 +47,7 @@ npm start
 
 Open [http://127.0.0.1:4242](http://127.0.0.1:4242). Try the simulator first. Click a crew member to inspect its task and full contribution, follow the ship's log, and save a receipt.
 
-To use local agents, install the [Codex CLI](https://learn.chatgpt.com/docs/cli) and run `codex login` in your terminal. Restart after installing Codex, select **Live agents**, and launch. “Codex installed” does not establish authentication, model access, or quota. Your CLI login stays with Codex; the local interface does not collect API keys.
+To use local agents, install the [Codex CLI](https://learn.chatgpt.com/docs/cli) and run `codex login` in your terminal. Restart after installing Codex, open **Flight settings**, select **Live agents**, and launch. “Codex installed” does not establish authentication, model access, or quota. Your CLI login stays with Codex; the local interface does not collect API keys.
 
 The local server is for loopback use by one person. Do not expose `server.mjs` through a public tunnel. It persists records under `.flight-data/`; unlike hosted sessions, local history survives restarts. Interrupted work is marked interrupted and never automatically resumed.
 
@@ -102,5 +102,7 @@ npm test
 The spark came from [Dhvanil Patel's swarm-cursors](https://github.com/DhvanilPatel/swarm-cursors), which credits [Joel Califa's Swarm](https://califa.github.io/swarm-site/) and its [source](https://github.com/califa/swarm-site). Their visual experiments made the question irresistible: what if the little cursors had real work to do?
 
 This is an original implementation. No code or assets from those projects are included. We did not find a license grant in the upstream root listings inspected; public visibility is not treated as a reuse license.
+
+The interface uses ProjectForty2’s midnight, ivory, and gold palette, self-hosted typography, and an original cursor renderer. See the [design notes](docs/design.md) and bundled [font licenses](docs/font-licenses.md).
 
 Our original code is [MIT licensed](LICENSE). This is an unofficial, Hitchhiker-inspired experiment, not an authorized adaptation or affiliation with Douglas Adams's estate, publishers, or other rights holders. The software license grants no rights in third-party names, characters, branding, or works. ProjectForty2 is a personal experimental lab; this is a community invitation, not a claim of established governance or production readiness.

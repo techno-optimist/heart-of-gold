@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, copyFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
@@ -20,6 +20,7 @@ class FakeRuntime extends EventEmitter {
 async function setup(t) {
   const dir=await mkdtemp(path.join(tmpdir(),'heart-server-'));
   await writeFile(path.join(dir,'index.html'),'<title>Flight deck</title>');
+  await copyFile(new URL('../public/swarm-field.mjs',import.meta.url),path.join(dir,'swarm-field.mjs'));
   const runtime=new FakeRuntime();
   const flight=await createFlightServer({runtime,publicDir:dir});
   const url=await flight.listen(0);
@@ -32,6 +33,9 @@ async function setup(t) {
 test('loopback API requires token, refuses cross-origin requests and validates limits',async t=>{
   const {url,post}=await setup(t);
   assert.equal((await fetch(url)).status,200);
+  const renderer=await fetch(url+'/swarm-field.mjs');
+  assert.equal(renderer.status,200);assert.match(renderer.headers.get('content-type'),/^text\/javascript/);
+  assert.match(await renderer.text(),/export function createSwarmField/);
   assert.equal((await post('/api/runs',{task:'Design a community experiment',mode:'demo'},'')).status,403);
   assert.equal((await fetch(url+'/api/config',{headers:{Origin:'https://evil.example'}})).status,403);
   assert.equal((await fetch(url+'/api/config',{headers:{'sec-fetch-site':'cross-site'}})).status,403);

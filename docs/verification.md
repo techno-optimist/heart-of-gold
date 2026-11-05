@@ -24,6 +24,14 @@ Observed locally for v0.2:
 
 The frontend refuses simulator fallback when its hosted backend is unavailable. Pages fallback remains explicitly browser-only. Keys are cleared before connection requests and on dialog closure; they are not stored by the frontend. Expiry is rechecked because API activity can extend the idle window; provider-disconnect events refresh account state.
 
+## Cursor playground redesign — 5 November 2026
+
+The interface was rebuilt around the reference’s open canvas and labeled cursor choreography, using ProjectForty2’s colors, wordmark, and typography. The opening scene is an explicitly labeled visual rehearsal. Real flight nodes still come from coordinator events.
+
+Local browser checks at 1280 × 720 and 390 × 844 covered a completed seven-node simulator flight, cursor selection, crew details, ship’s log, reopening history, report download, cancellation, pause, flight settings, and the provider sheet. The mobile check found no horizontal overflow and confirmed all seven cursors clear the composer. All seven dialogs have accessible names. A synthetic unsent key was cleared when switching providers. Browser emulation does not establish physical-phone or comprehensive accessibility coverage.
+
+The full 63-test suite passed. Module MIME regression assertions were then added to the existing local/hosted server tests; all 18 targeted server tests passed. JavaScript syntax and whitespace checks passed. Renderer checks also exercised reduced-motion scheduling, dock resizing, and cleanup with a synthetic DOM harness. No paid provider inference was performed for this redesign.
+
 ## Previously observed local behavior
 
 - A live Codex CLI run completed a synthetic onboarding task: a lead delegated to two helpers, both returned, and the lead synthesized a six-item checklist. Three task nodes, four model invocations. The sanitized [receipt](receipts/live-smoke.json) contains no credentials or private task input.

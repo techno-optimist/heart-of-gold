@@ -153,6 +153,9 @@ test('health is sessionless and hosted HTML is marked fail-closed', async t => {
   const { url, flight } = await fixture(t);
   const health = await fetch(url + '/api/health'); assert.equal(health.status, 200); assert.equal(flight.sessions.entries.size, 0);
   const page = await fetch(url + '/'); assert.match(await page.text(), /data-runtime="hosted"/);
+  const renderer = await fetch(url + '/swarm-field.mjs');
+  assert.equal(renderer.status, 200); assert.match(renderer.headers.get('content-type'), /^text\/javascript/);
+  assert.match(await renderer.text(), /export function createSwarmField/);
 });
 
 test('a late authentication failure from an old run cannot revoke a new connection', async t => {

@@ -10,6 +10,6 @@
     "start": "node server.mjs",
     "start:hosted": "node hosted-server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check hosted-server.mjs && node --check public/app.js && node --check lib/runtime.mjs && node --check lib/adapters.mjs && node --check lib/result-schema.mjs && node --check lib/provider-adapter.mjs && node --check lib/hosted-sessions.mjs"
+    "check": "node --check server.mjs && node --check hosted-server.mjs && node --check public/app.js && node --check public/swarm-field.mjs && node --check lib/runtime.mjs && node --check lib/adapters.mjs && node --check lib/result-schema.mjs && node --check lib/provider-adapter.mjs && node --check lib/hosted-sessions.mjs"
   }
 }
