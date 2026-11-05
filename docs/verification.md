@@ -6,7 +6,11 @@ This is a working alpha, not evidence that swarms outperform single agents. Impl
 
 The code includes a separate `/heartofgold/` hosted service, session ownership, temporary in-memory credentials/history, provider model discovery, OpenAI/Claude/Grok API adapters, and the account/model interface. Its intended destination is [projectforty2.ai/heartofgold/](https://projectforty2.ai/heartofgold/).
 
-At this documentation checkpoint, **production deployment of v0.2 is not yet verified**. A prepared change or manifest is not a live-release receipt. GitHub Pages remains a separate browser-only simulator.
+The hosted v0.2 service was verified at **18:07 UTC on 5 November 2026** at [projectforty2.ai/heartofgold/](https://projectforty2.ai/heartofgold/). The [synthetic hosted receipt](receipts/hosted-smoke.json) records the exact app and edge commits. GitHub Pages remains a separate browser-only simulator.
+
+The public check passed the canonical redirect, hosted page and health endpoint, secure session cookie, rejected foreign origin, sanitized invalid credential, fresh visitor's empty history, denied cross-session flight read, and a completed seven-node/39-event scripted flight. No real provider credential was used.
+
+The first live isolation check caught the site proxy retaining an upstream session cookie. Heart of Gold was suspended while this was repaired. [Edge PR #177](https://github.com/techno-optimist/observatory/pull/177) disables upstream cookie retention and enforces the current visitor's cookie after request construction. Its two regression tests and the full **122-test edge/site suite** passed, CI was green, the corrected edge deployed, and the fresh live check above passed after service resumption. Earlier startup checks also saw temporary 503 responses; continuous availability is not claimed.
 
 Observed locally for v0.2:
 
@@ -14,7 +18,7 @@ Observed locally for v0.2:
 - Provider checks use synthetic keys and mocked HTTP responses. They cover request shape, discovery/filtering, cancellation, response bounds, and sanitized failures. Hosted checks include session isolation, origin/token controls, expiry, connection races, and credential handling.
 - A hosted browser demo completed with seven nodes. A rejected provider key produced an error and the key input was cleared.
 - JavaScript syntax checks passed after the provider UI changes.
-- The separate ProjectForty2 edge change passed 120 local tests. Its CI and deployment remain separate release steps.
+- App CI passed on Node 22 and 24. The initial edge route passed 120 tests; the cookie-isolation repair passed 122. The deployed app commit is `d1475d0`; the corrected edge commit is `dffdbd5`.
 
 **No paid OpenAI, Claude, or Grok inference has been run through the hosted adapter with real credentials.** Mocked success does not establish real account access, model compatibility, billing, latency, or output quality. Model discovery alone would establish catalog access, not task completion.
 
@@ -37,4 +41,4 @@ The live local check used macOS, Node 26.8.1, and Codex CLI 0.166.0. CLI transpo
 - Production-grade isolation, confidentiality, or comprehensive denial-of-service resistance.
 - Continuous hosted availability, session continuity across restarts, or real paid provider inference.
 
-Public GitHub/Pages publication was authorized on 5 November 2026; [publication.md](publication.md) records the initial v0.1 scope. The subsequent v0.2 ProjectForty2 route is a separate release and requires its own live verification.
+Public GitHub/Pages publication and the subsequent ProjectForty2 route were authorized on 5 November 2026; [publication.md](publication.md) records their scope. Hosted ChatGPT OAuth remains an unsubmitted [access request and integration proposal](chatgpt-sign-in.md).

@@ -2,6 +2,14 @@
 
 Date: 2026-11-05 · Status: accepted for the initial alpha
 
+## v0.2 addendum: the hosted ship
+
+The original local architecture below remains available. The separate `hosted-server.mjs` entry point adds one memory-only runtime per temporary visitor session and OpenAI, Claude, and Grok HTTP adapters. Hosted workers receive no tools. Credentials live outside run metadata; provider requests have a 90-second deadline and a shared concurrency gate. Session expiry and restarts discard hosted history instead of recovering it from disk.
+
+ProjectForty2's edge proxies only `/heartofgold/` to this service. Visitor identity must come only from the current request: a shared HTTP client's upstream cookie jar must never supply it. The edge disables cookie retention and replaces client-jar cookies after building each upstream request. A live synthetic check discovered this boundary problem during rollout; its repair includes fresh/returning-visitor regressions.
+
+Consumer ChatGPT plan usage is a separate authorization and streaming integration. See [the sign-in proposal](chatgpt-sign-in.md); an API-key adapter is not an OAuth implementation.
+
 ## The question
 
 Can a visual swarm help people understand and direct real delegated agent work?

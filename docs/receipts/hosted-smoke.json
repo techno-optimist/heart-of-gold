@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-11-05T18:07:12.792Z",
+  "url": "https://projectforty2.ai/heartofgold/",
+  "version": "0.2.0",
+  "appCommit": "d1475d06e39637596fe32b41b0463870fc4eaa18",
+  "edgeCommit": "dffdbd53fa0f3a11cee98321552183555581936e",
+  "checks": {
+    "hostedHTML": true,
+    "canonicalRedirect": true,
+    "health": true,
+    "privateSessionConfig": true,
+    "foreignOriginDenied": true,
+    "invalidCredentialNotEchoed": true,
+    "freshVisitorHistoryEmpty": true,
+    "crossSessionReadDenied": true,
+    "hostedDemoCompleted": true
+  },
+  "demo": {
+    "nodes": 7,
+    "events": 39,
+    "status": "completed"
+  },
+  "paidProviderInference": "NOT_RUN",
+  "oauth": "HOSTED_ACCESS_NOT_GRANTED",
+  "credentials": "No real provider credential used or written to this receipt."
+}

@@ -15,7 +15,7 @@ Don't Panic. Bring a towel. Check the work.
 | **Flight simulator** | A scripted demonstration exercises delegation and the interface. No model calls; output is demonstration content. |
 | **GitHub Pages showcase** | A browser-only simulator. It has no execution backend and cannot access your local Codex. |
 
-The v0.2 hosted destination is [projectforty2.ai/heartofgold/](https://projectforty2.ai/heartofgold/). See the dated [flight check](docs/verification.md) for deployment and verification status. Hosted paid inference has **not** been tested with real provider credentials.
+The v0.2 hosted app is live at [projectforty2.ai/heartofgold/](https://projectforty2.ai/heartofgold/). See the dated [flight check](docs/verification.md) for deployment and verification status. Hosted paid inference has **not** been tested with real provider credentials.
 
 [Source and contributions](https://github.com/techno-optimist/heart-of-gold) · [Browser simulator](https://techno-optimist.github.io/heart-of-gold/) · [Provider access guide](docs/provider-access.md)
 
@@ -26,6 +26,8 @@ This alpha produces text deliverables. It does **not** edit repositories, merge 
 Choose **Power the drive**, select OpenAI, Claude, or Grok, and supply your own API key. The backend checks the provider's model listing and returns candidate text models. Choose a model, select **Live agents**, and launch a small mission. Model-list access is not proof that every returned model will complete a mission: permissions, request compatibility, quota, and billing are checked during actual requests.
 
 API access is separate from consumer chat access. A ChatGPT, Claude, or Grok subscription does not automatically supply an API key or API credit; eligible credit offers still need provider API setup. This version implements API-key access, **not** consumer-account OAuth or imported chat cookies. See [provider access](docs/provider-access.md) for official account links and current distinctions.
+
+We want **Sign in with ChatGPT** to become the preferred OpenAI boarding pass. OpenAI supports eligible plan usage through OAuth, with separate approval for remotely hosted apps. The [application draft and integration plan](docs/chatgpt-sign-in.md) are ready; access has not been granted and no OAuth button is active.
 
 Your key travels over HTTPS to ProjectForty2 and stays in server memory for your temporary session. It is not written to browser storage, receipts, application logs, or the application's filesystem. A hosting operator can potentially access process memory; this is not an end-to-end secret vault. Prompts and results go to the chosen provider. Read [SECURITY.md](SECURITY.md) before entering sensitive material.
 
