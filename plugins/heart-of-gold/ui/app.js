@@ -2,6 +2,7 @@ import { App } from '@modelcontextprotocol/ext-apps';
 import { createSwarmField } from '../../../public/swarm-field.mjs';
 import { flightFieldState } from './swarm-adapter.mjs';
 import { normalizeProject, createProjectWorkspace } from './project-preview.mjs';
+import { inlineFrameHeight } from './frame-size.mjs';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
@@ -615,6 +616,9 @@ $('expand').addEventListener('click', async () => {
 
 function applyHostContext(context = {}) {
   state.hostContext = { ...state.hostContext, ...context };
+  // Budget the entire inline card, including its chrome and safe area. Reading
+  // our own iframe height here would feed autoResize back into itself.
+  $('deck').style.setProperty('--inline-height', `${inlineFrameHeight(state.hostContext)}px`);
   if (context.theme === 'dark' || context.theme === 'light') document.documentElement.dataset.theme = context.theme;
   const variables = context.styles?.variables;
   if (variables && typeof variables === 'object') for (const [key, value] of Object.entries(variables)) if (key.startsWith('--') && typeof value === 'string') document.documentElement.style.setProperty(key, value);
