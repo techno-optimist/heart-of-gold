@@ -1,10 +1,10 @@
 # Plugin review dossier
 
-Package: `heart-of-gold` `0.2.0`. Publisher label: ProjectForty2. Source: [techno-optimist/heart-of-gold](https://github.com/techno-optimist/heart-of-gold). Remote server: `https://projectforty2.ai/heartofgold/mcp`. No provider login; private flight capabilities protect temporary state. Public directory approval: **not established by this dossier**.
+Package: `heart-of-gold` `0.2.1`. Publisher label: ProjectForty2. Source: [techno-optimist/heart-of-gold](https://github.com/techno-optimist/heart-of-gold). Remote server: `https://projectforty2.ai/heartofgold/mcp`. No provider login; private flight capabilities protect temporary state. Public directory approval: **not established by this dossier**.
 
 This document separates a prepared review package from observed installation, operation, and approval. Do not turn an automated test pass into a claim that ChatGPT installation, embedded rendering, or public submission succeeded.
 
-Initial `0.1.x` packaging checks on 5 November 2026 passed the portable schemas and Skill Creator validator; its personal registered-app variant installed and loaded the skill in a setup Work chat. That is historical installation evidence. The `0.2.0` single-card behavior, temporary-state isolation, and retention limits need their own checks; do not inherit acceptance from the earlier version.
+Initial `0.1.x` packaging checks on 5 November 2026 passed the portable schemas and Skill Creator validator; its personal registered-app variant installed and loaded the skill in a setup Work chat. That is historical installation evidence. The `0.2.1` single-card behavior, temporary-state isolation, and retention limits need their own checks; do not inherit acceptance from the earlier version.
 
 ## Product and data-flow review
 

@@ -2,7 +2,7 @@
 
 A small crew for big questions. One flight deck stays in the chat while the crew works: the plan becomes actual starts, contributions, critique, and synthesis in that same card. The chat host performs the work. ProjectForty2's MCP service holds the latest reported state for the deck; it does not run an external model.
 
-This is the `0.2.0` plugin package, separate from the website's release numbering. Its one-card protocol replaces the `0.1.x` repeated-rendering design. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
+This is the `0.2.1` plugin package, separate from the website's release numbering. Its one-card protocol replaces the `0.1.x` repeated-rendering design. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
 
 ## What you get
 
@@ -80,7 +80,7 @@ Official guidance explains that imported MCP declarations can produce a Desktop-
 2. Build an account-specific archive from the repository root, replacing the example argument with your registered app ID:
 
    ```sh
-   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.2.0
+   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.2.1
    ```
 
 3. In ChatGPT **Plugins → + → Upload archive**, upload this private ZIP, or use the existing personal plugin's update action. Inspect the imported details and select **Install plugin** when available. Start setup or a new Work chat and verify the skill and connected tools. Account/workspace policies still apply.
@@ -119,7 +119,7 @@ The portable package uses the Agent Plugins `1.0.0` schemas, with OpenAI listing
 Create a release archive from the repository root with Node 22+ and Python 3 (standard library only):
 
 ```sh
-node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.2.0.zip
+node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.2.1.zip
 ```
 
 The ZIP has `plugin.json` and `mcp.json` directly at its root, alongside `LICENSE`, `skills/`, and `assets/`. It excludes the website, UI source/build output, marketplace catalog, dependencies, and local data. The packager rejects symlinks, unreviewed file types, missing referenced assets, and common credential/private-path patterns; it verifies the archive and prints its SHA-256. Identical source files produce identical ZIP bytes. These checks do not replace source review or the platform's own validation. Creating the ZIP does not install, upload, submit, or approve it.

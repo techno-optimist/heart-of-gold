@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "heart-of-gold",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A small crew for big questions. Plan, challenge, and synthesize useful work with an inspectable flight deck.",
   "author": {
     "name": "ProjectForty2",
@@ -104,7 +104,7 @@
         "commerce_description": "This plugin does not sell products, process payments, or invoke external AI providers. Host account usage applies."
       },
       "publication": {
-        "release_notes": "One persistent flight deck per mission. Build the crew once; publish actual host-reported work milestones through data-only updates while the same card refreshes. Temporary bounded server memory replaces stateless repeated rendering; no durable flight history, external model calls, or invented worker activity."
+        "release_notes": "Keeps one persistent flight deck and tolerates delayed host acknowledgement without duplicate Deploy requests. Reports actual host milestones through quiet updates; temporary bounded memory retains only the latest snapshot, with no durable flight history or external model calls."
       }
     }
   }

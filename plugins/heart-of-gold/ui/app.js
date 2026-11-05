@@ -9,8 +9,8 @@ const executions = new Set(['not_started', 'guided_passes', 'native_agents']);
 const clip = (value, max = 2000) => typeof value === 'string' ? value.slice(0, max) : '';
 const label = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const isPreview = window.parent === window;
-const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.2.0' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
-const state = { snapshot: null, selectedId: null, dirty: false, editing: false, missionEditing: false, pending: null, receivedAt: null, connected: false, canMessage: false, busy: false, sentRevision: null, revision: 0, hostContext: {}, lastMessage: '', flight: null, remoteSignature: '', sync: 'waiting', expired: false, polling: false, pollFailures: 0, unchangedReads: 0, awaitingUpdate: false, milestone: '', evidenceKey: '', questionsKey: '', tornDown: false, cached: false, authoritativeSnapshot: null, authoritativeReceivedAt: null };
+const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.2.1' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
+const state = { snapshot: null, selectedId: null, dirty: false, editing: false, missionEditing: false, pending: null, receivedAt: null, connected: false, canMessage: false, busy: false, sentRevision: null, revision: 0, hostContext: {}, lastMessage: '', flight: null, remoteSignature: '', sync: 'waiting', expired: false, polling: false, pollFailures: 0, unchangedReads: 0, awaitingUpdate: false, messageUnconfirmed: false, messageRevision: null, milestone: '', evidenceKey: '', questionsKey: '', tornDown: false, cached: false, authoritativeSnapshot: null, authoritativeReceivedAt: null };
 const cursorNodes = new Map();
 let displayedMission = '';
 let pollTimer;
@@ -30,6 +30,9 @@ function persistView() {
 }
 function receiveSnapshot(input, force = false, initial = false) {
   const snapshot = normalizeSnapshot(input);
+  if (state.messageUnconfirmed && state.flight?.revision > state.messageRevision) {
+    state.messageUnconfirmed = false; state.awaitingUpdate = false; notify('');
+  }
   state.authoritativeSnapshot = snapshot; state.authoritativeReceivedAt = new Date().toISOString();
   if (initial && !state.snapshot && state.flight) {
     try {
@@ -301,7 +304,7 @@ function renderInspector() {
     link.addEventListener('click', (event) => { if (!state.connected) return; event.preventDefault(); app.openLink({ url: item.url }).catch(() => notify('The host could not open this evidence link.', 'error')); }); li.append(link); return li;
   }));
   state.evidenceKey = evidenceKey;
-  $('challenge-branch').disabled = state.busy || state.expired || state.cached || (!isPreview && (!state.connected || !state.canMessage || !state.flight?.writeToken));
+  $('challenge-branch').disabled = state.busy || state.messageUnconfirmed || state.expired || state.cached || (!isPreview && (!state.connected || !state.canMessage || !state.flight?.writeToken));
 }
 
 function render() {
@@ -324,8 +327,8 @@ function render() {
   $('edit-mission').disabled = !isBuilder() || state.busy || state.editing;
   $('edit-mission').hidden = !isBuilder();
   $('deploy').hidden = !isBuilder();
-  $('deploy').disabled = ((!state.connected || !state.canMessage || !state.flight?.writeToken) && !isPreview) || state.expired || state.cached || state.busy || state.editing || state.missionEditing || !!state.pending || state.sentRevision === state.revision;
-  $('deploy').textContent = state.busy ? 'Sending to the chat…' : state.sentRevision === state.revision ? 'Sent to the chat ✓' : 'Deploy the drive ↗';
+  $('deploy').disabled = ((!state.connected || !state.canMessage || !state.flight?.writeToken) && !isPreview) || state.expired || state.cached || state.busy || state.messageUnconfirmed || state.editing || state.missionEditing || !!state.pending || state.sentRevision === state.revision;
+  $('deploy').textContent = state.busy ? 'Sending to the chat…' : state.messageUnconfirmed ? 'Awaiting chat report…' : state.sentRevision === state.revision ? 'Sent to the chat ✓' : 'Deploy the drive ↗';
   $('fork-plan').hidden = isBuilder() || !terminal(); $('fork-plan').disabled = state.busy || state.expired || state.cached;
   $('deliverable-section').hidden = isBuilder() || (!snapshot.summary && !snapshot.members.some((member) => member.result));
   writeText('result-state', snapshot.status === 'complete' ? 'Complete' : snapshot.status === 'partial' ? 'Partial result' : 'In progress');
@@ -389,7 +392,7 @@ export function crewPlan(snapshot) {
 }
 
 async function sendToChat(message, context, purpose) {
-  if (state.busy) return false;
+  if (state.busy || state.messageUnconfirmed) return false;
   state.lastMessage = message;
   if (isPreview) {
     $('message-preview-content').textContent = message; $('message-preview').hidden = false;
@@ -407,7 +410,21 @@ async function sendToChat(message, context, purpose) {
       const updated = await app.updateModelContext({ structuredContent: attached }, { timeout: 6000 });
       if (updated?.isError) throw new Error('Context rejected.');
     } catch { throw new Error('The crew context could not reach the chat. Nothing was sent; your plan is preserved.'); }
-    const result = await app.sendMessage({ role: 'user', content: [{ type: 'text', text: message }] }, { timeout: 15000 });
+    state.messageRevision = state.flight.revision;
+    let result;
+    try {
+      result = await app.sendMessage({ role: 'user', content: [{ type: 'text', text: message }] }, { timeout: 15000 });
+    } catch (error) {
+      // SDK v2 uses REQUEST_TIMEOUT; v1 used -32001. A lost receipt does
+      // not mean the visible user message was not delivered. Never retry it.
+      if (error?.code === 'REQUEST_TIMEOUT' || error?.code === -32001 || /timed?\s*out|timeout/i.test(error?.message || '')) {
+        state.messageUnconfirmed = true; state.awaitingUpdate = true; state.unchangedReads = 0;
+        state.milestone = 'Request submitted. Waiting for the chat’s report.';
+        notify('Request submitted; waiting for the chat’s report. The host has not confirmed receipt. No automatic retry.');
+        return true;
+      }
+      throw error;
+    }
     if (result?.isError) throw new Error('The host declined the message. Your draft is still here.');
     state.awaitingUpdate = true; state.unchangedReads = 0;
     state.milestone = purpose === 'deploy' ? 'Deployed to the chat. Waiting for its first report.' : 'Challenge sent. Waiting for the revised report.';

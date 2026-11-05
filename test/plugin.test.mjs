@@ -144,6 +144,7 @@ test('MCP creates only one render tool; updates are UI-less and app polling tool
   const { rpc } = await fixture(t);
   const initialized = await rpc('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'test', version: '1' } });
   assert.equal(initialized.response.status, 200); assert.equal(initialized.value.result.serverInfo.name, 'heart-of-gold');
+  assert.equal(initialized.value.result.serverInfo.version, '0.2.1');
   assert.equal(initialized.response.headers.get('mcp-session-id'), null); assert.equal(initialized.response.headers.get('set-cookie'), null);
   const listed = await rpc('tools/list');
   assert.deepEqual(listed.value.result.tools.map(tool => tool.name), ['build_crew', 'show_flight', 'read_flight', 'save_plan']);
@@ -239,6 +240,21 @@ test('MCP resource is self-contained with no network domains', async t => {
   assert.deepEqual(resource._meta.ui.csp, { connectDomains: [], resourceDomains: [] });
   assert.equal(resource._meta.ui.domain, 'https://projectforty2.ai');
   assert(!resource.text.includes('PRIVATE-A'));
+});
+
+test('v3 is the rendering cache key while v1 and v2 remain readable resource aliases', async t => {
+  const { rpc } = await fixture(t);
+  assert.equal(FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v3.html');
+  const listed = (await rpc('resources/list')).value.result.resources;
+  assert.deepEqual(listed.map(resource => resource.uri), [FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v1.html', 'ui://heart-of-gold/flight-deck-v2.html']);
+  const outputs = await Promise.all(listed.map(resource => rpc('resources/read', { uri: resource.uri })));
+  for (const [index, output] of outputs.entries()) {
+    assert.equal(output.value.result.contents[0].uri, listed[index].uri);
+    assert.equal(output.value.result.contents[0].mimeType, FLIGHT_RESOURCE_MIME);
+    assert.equal(output.value.result.contents[0].text, outputs[0].value.result.contents[0].text);
+  }
+  const tools = (await rpc('tools/list')).value.result.tools;
+  assert.deepEqual(tools.filter(tool => tool._meta.ui.resourceUri).map(tool => tool._meta.ui.resourceUri), [FLIGHT_RESOURCE_URI]);
 });
 
 test('MCP malformed tool arguments fail instead of rendering invented execution', async t => {
