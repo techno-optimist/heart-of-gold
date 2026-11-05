@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-11-05T19:45:06.330Z",
+  "endpoint": "https://projectforty2.ai/heartofgold/mcp",
+  "appCommit": "a9df01e2e8fd02dccf29104403959346bd8230aa",
+  "verification": "Live HTTP/MCP protocol and synthetic fixture checks; not real ChatGPT plugin execution.",
+  "serverInfo": {
+    "name": "heart-of-gold",
+    "version": "0.1.0"
+  },
+  "protocolVersion": "2025-11-25",
+  "bundle": {
+    "sha256": "72cfdc64c96e7083d0c5add53dd7419d13a90014931485756aaff3b8d13fa762",
+    "bytes": 704118,
+    "exactDeployedResourceMatch": true
+  },
+  "checks": {
+    "initialize": true,
+    "preselectedGuidedModeCanonicalizedToUnstartedBuilder": true,
+    "resourceMatchesReviewedBundle": true,
+    "resourceHasNoNetworkDomains": true,
+    "noAuthToolsListed": true,
+    "buildCrewProducesUnstartedPlan": true,
+    "revisedUnstartedCrewRemainsEditable": true,
+    "syntheticCompletedReportAccepted": true,
+    "nativeActivityWithoutWorkerIdsRejected": true,
+    "privacyPage": true,
+    "previewMatchesReviewedBundle": true,
+    "previewUsesHashedScriptsAndNoNetwork": true,
+    "chatgptOriginPreflight": true,
+    "foreignOriginRejected": true,
+    "freshWebsiteVisitorsIsolated": true,
+    "returningVisitorKeepsOwnSession": true,
+    "pluginDidNotCreateWebsiteRunHistory": true
+  },
+  "paidProviderInference": "NOT_RUN",
+  "nativeAgentExecution": "NOT_RUN",
+  "realChatGPTHostExecution": "NOT_RUN_BY_THIS_SCRIPT",
+  "publicationScope": "Personal installation. Public directory review is deferred and was not verified by this script.",
+  "privacy": "No provider keys, account identifiers, personal paths, cookies, or session tokens are included."
+}

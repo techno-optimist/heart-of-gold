@@ -52,3 +52,14 @@ The live local check used macOS, Node 26.8.1, and Codex CLI 0.166.0. CLI transpo
 - Continuous hosted availability, session continuity across restarts, or real paid provider inference.
 
 Public GitHub/Pages publication and the subsequent ProjectForty2 route were authorized on 5 November 2026; [publication.md](publication.md) records their scope. The hosted ChatGPT OAuth [access request](chatgpt-sign-in.md) was subsequently submitted with owner approval on 5 November 2026; OpenAI confirmed receipt. Approval and implementation remain outstanding.
+
+
+## Chat plugin personal preview — 5 November 2026
+
+The plugin adds a stateless MCP renderer, an embedded editable crew deck, and a deploy-drive skill. The source package was published and deployed; this is not an approved public ChatGPT directory listing. The owner chose to test a personal installation before publisher verification.
+
+Local checks: 86 tests passed for the initial package; the subsequent planning normalization fix passed all 24 focused plugin/hosted-plugin tests. The owning edge passed 123 tests and its site checker, and proxy PR #180 merged. The official MCP Apps AppBridge harness verified initialization, tool snapshots, user-message delivery, challenges, fullscreen, host themes, 390 px layout, denied messages, and missing messaging support. Harness fixtures are synthetic and are not ChatGPT execution evidence.
+
+A fresh Codex CLI session loaded the installed skill and called the real MCP tools (`build_crew` once and `show_flight` twice) to produce a complete community-garden plan with a skeptical review. This exercised three guided passes by one assistant, not native delegation. The CLI does not render the widget. That run found an unstarted-plan presentation mismatch, now corrected by normalizing entirely planned crews to editable, unstarted blueprints.
+
+The live transport receipt is [plugin-smoke.json](receipts/plugin-smoke.json). Private account connection IDs and local host logs are excluded from this repository. ChatGPT visual acceptance is tracked separately and must not be inferred from a source package, CLI execution, or the local bridge harness.

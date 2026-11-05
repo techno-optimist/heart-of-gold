@@ -12,6 +12,20 @@ const isPreview = window.parent === window;
 const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.1.0' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
 const state = { snapshot: null, selectedId: null, dirty: false, editing: false, missionEditing: false, pending: null, receivedAt: null, connected: false, canMessage: false, busy: false, sentRevision: null, revision: 0, hostContext: {}, lastMessage: '' };
 const cursorNodes = new Map();
+let displayedMission = '';
+
+function renderMission(mission) {
+  const characters = Array.from(mission);
+  const isLong = characters.length > 120;
+  const disclosure = $('full-mission');
+  if (mission !== displayedMission) disclosure.open = false;
+  displayedMission = mission;
+  const sentence = mission.match(/^.*?[.!?](?=\s|$)/u)?.[0] || mission;
+  const short = Array.from(sentence).slice(0, 117).join('').trimEnd();
+  $('mission-title').textContent = isLong ? `${short}…` : mission;
+  $('full-mission-text').textContent = mission;
+  disclosure.hidden = !isLong;
+}
 
 export function validateCrew(members) {
   if (!Array.isArray(members) || members.length < 1 || members.length > 7) throw new Error('Keep the crew between 1 and 7 roles.');
@@ -180,7 +194,7 @@ function render() {
   $('execution-label').textContent = executionLabels[snapshot.execution];
   $('snapshot-label').textContent = state.dirty ? 'Edited draft · not deployed' : `${isPreview ? 'Preview loaded' : 'Snapshot received'} ${state.receivedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   $('eyebrow').textContent = isBuilder() ? 'DON’T PANIC. GIVE EVERY CURSOR A PURPOSE.' : 'FOLLOW THE WORK. QUESTION THE ANSWER.';
-  $('mission-title').textContent = snapshot.mission;
+  renderMission(snapshot.mission);
   $('mission-note').textContent = isBuilder() ? 'Shape the crew. Give each role something useful to bring back.' : 'A snapshot of reported contributions. Select a cursor to inspect its work.';
   $('map-caption').textContent = isBuilder() ? 'Planned responsibilities. No work has started.' : 'Lines show task relationships. Status is reported by the chat host.';
   renderMap(); renderInspector();
@@ -312,8 +326,8 @@ if (isPreview) {
   $('preview-banner').hidden = false;
   acceptSnapshot(previewSnapshot(), true);
 } else {
-  app.ontoolinput = ({ arguments: input }) => { if (!state.snapshot && typeof input?.mission === 'string') $('mission-title').textContent = clip(input.mission, 6000); };
-  app.ontoolinputpartial = ({ arguments: input }) => { if (!state.snapshot && typeof input?.mission === 'string') $('mission-title').textContent = clip(input.mission, 6000); };
+  app.ontoolinput = ({ arguments: input }) => { if (!state.snapshot && typeof input?.mission === 'string') renderMission(clip(input.mission, 6000)); };
+  app.ontoolinputpartial = ({ arguments: input }) => { if (!state.snapshot && typeof input?.mission === 'string') renderMission(clip(input.mission, 6000)); };
   app.ontoolresult = (result) => {
     if (result?.isError) { notify('The host could not prepare this crew. Ask it to try again in the conversation.', 'error'); return; }
     acceptSnapshot(result?.structuredContent);
