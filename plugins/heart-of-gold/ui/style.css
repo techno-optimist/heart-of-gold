@@ -115,3 +115,88 @@ input,select,.role-form textarea,.mission-settings textarea{display:block;max-wi
 @media(max-width:360px){.masthead{padding:0 12px;gap:8px}.brand{font-size:21px;gap:5px}.brand-mark{width:23px;height:23px}.masthead nav{gap:4px}#expand{max-width:110px;padding:7px 8px}.scene-copy{left:24px}.scene-copy h1{font-size:59px}.field-tools{left:24px;right:16px;gap:12px}.deck[data-has-snapshot=true] .field-tools{left:24px;right:16px;gap:12px}.field-tools button{font-size:9px}.mission-dock{width:calc(100% - 40px);padding:14px 14px 9px}.composer-heading>span{font-size:7px}.scene-state{left:24px;right:20px}.scene-state h2{font-size:34px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 @media(max-width:760px){.composer-toolbar .settings-button{width:auto;min-width:80px;flex-shrink:0}}
+/* Actual project files take the centre of the same ship. */
+.project-workspace{position:absolute;z-index:5;left:32px;right:32px;top:143px;bottom:225px;display:flex;flex-direction:column;background:#0a0b10;border:1px solid var(--strong-rule);border-radius:3px;min-height:260px;box-shadow:0 12px 40px #0004}
+.project-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 18px;border-bottom:1px solid var(--rule)}
+.project-heading h3{font:500 25px/1 var(--serif);color:var(--ivory);margin:0 0 5px}
+.project-heading p{font:8px/1.5 var(--mono);color:var(--muted);margin:0}
+.project-links{display:flex;gap:20px}.project-links button{font-size:10px;min-height:44px}
+.project-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--rule);padding:0 18px}
+.project-tabs{display:flex;gap:20px}.project-tabs button{min-height:44px;min-width:44px;padding:0 1px;font:11px var(--sans);border-bottom:1px solid transparent;color:var(--muted)}
+.project-tabs button[aria-selected=true]{color:var(--gold);border-bottom-color:var(--gold)}
+.project-attribution{font:8px/1.5 var(--mono);color:var(--muted);text-align:right}
+.project-body{display:grid;grid-template-columns:190px minmax(0,1fr);flex:1;min-height:0;overflow:hidden}
+.project-file-list{overflow:auto;padding:10px 8px;border-right:1px solid var(--rule);min-width:0}
+.project-file{padding:0 6px 7px;border-bottom:1px solid var(--rule);margin-bottom:7px;min-width:0}
+.project-file-name{display:block;min-height:36px;text-align:left;width:100%;overflow-wrap:anywhere;font:10px/1.5 var(--mono);color:var(--muted)}
+.project-file-name[aria-pressed=true]{color:var(--gold)}
+.project-file-owner{display:flex;align-items:center;gap:6px;min-height:32px;max-width:100%;font:9px/1.3 var(--sans);color:var(--agent-color);text-align:left}
+.project-file-owner .cursor-shape{position:static;width:12px;height:15px;flex-shrink:0;transform:rotate(-8deg);background:var(--agent-color)}
+.project-file-owner span:last-child{overflow-wrap:anywhere}
+.project-content{min-width:0;min-height:0;position:relative}
+.project-content>section{height:100%;min-height:0;display:flex;flex-direction:column}
+.project-preview-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 12px;min-height:44px}
+#project-preview-status{font:9px/1.5 var(--mono);color:var(--muted);margin:5px 0}
+#project-preview-status[data-error=true]{color:#efb58c}
+.project-preview-toolbar button{font-size:10px;min-height:44px;flex-shrink:0}
+.project-preview-frame-slot{flex:1;min-height:80px;background:#f6f4ee;position:relative;overflow:hidden}
+.project-preview-frame{border:0;display:block;width:100%;height:100%;background:#fff}
+.project-preview-warning{margin:0;font:9px/1.5 var(--sans);padding:5px 12px;color:#c7a88b;max-height:50px;overflow:auto}
+.project-preview-warning:empty{display:none}
+.project-file-label{display:block;font:10px/1.5 var(--mono);padding:12px 14px;color:var(--muted)}
+.project-editor{display:block;flex:1;min-height:90px;width:100%;max-width:100%;border:0;border-block:1px solid var(--rule);border-radius:0;resize:none;background:#07080c;color:#e6e0ce;padding:12px 14px;font:11px/1.7 var(--mono);tab-size:2;white-space:pre;overflow:auto}
+.project-editor:focus-visible{outline:1px solid var(--gold);outline-offset:-1px}
+.project-edit-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:5px 12px}
+.project-edit-actions>span{font:8px/1.5 var(--mono);color:var(--muted);flex:1 0 100%}
+.project-edit-actions button{min-height:40px;font-size:10px}
+#project-changes-panel{overflow:auto;padding:14px 18px;display:block}
+#project-changes-panel h4{font:10px var(--mono);color:var(--gold);margin:6px 0 15px}
+#project-changes-panel ul{list-style:none;padding:0;margin:0 0 25px}
+.project-change,.project-check{font:11px/1.65 var(--sans);padding:9px 0;border-bottom:1px solid var(--rule);overflow-wrap:anywhere}
+.project-change-operation{color:var(--muted);margin-right:9px;font-size:9px}
+.project-change code,.project-check code{font:10px/1.5 var(--mono);color:var(--text)}
+.project-change p,.project-check p{font-size:11px;margin:6px 0 2px;color:var(--muted)}
+.project-check[data-status=passed]>span{color:#a3c4ba}.project-check[data-status=failed]>span{color:#efb58c}
+#project-checks-empty{font-size:11px}
+.deck[data-has-project=true] .star-map{visibility:hidden}
+.deck[data-has-project=true] .mission-dock{bottom:78px;padding:8px 18px 3px}
+.deck[data-has-project=true] .composer-heading{display:none}
+.deck[data-has-project=true] .composer-entry{gap:18px}
+.deck[data-has-project=true] .composer-entry textarea{min-height:42px;max-height:52px;font-size:12px}
+.deck[data-has-project=true] .composer-toolbar{margin-top:0;min-height:36px}
+.deck[data-has-project=true] .scene-state{top:30px}
+.deck[data-has-project=true] .scene-state h2{font-size:34px;-webkit-line-clamp:1}
+.deck[data-has-project=true] .scene-state>div{max-width:75%}
+@media(max-width:760px){
+ .project-workspace{left:16px;right:16px;top:155px;bottom:225px;min-height:340px}.project-heading{padding:8px 12px;gap:10px}.project-heading h3{font-size:22px}.project-heading p{font-size:7px}.project-links{gap:9px}.project-links button{font-size:9px}.project-toolbar{padding:0 12px;gap:8px}.project-tabs{gap:16px}.project-attribution{display:none}.project-body{grid-template-columns:1fr;grid-template-rows:90px minmax(0,1fr)}.project-file-list{display:flex;gap:12px;overflow:auto;border-right:0;border-bottom:1px solid var(--rule);padding:5px 10px}.project-file{min-width:110px;max-width:160px;border-bottom:0;border-right:1px solid var(--rule);padding:0 10px 0 0;margin:0;flex-shrink:0}.project-file-name{min-height:36px}.project-file-owner{min-height:34px}.project-preview-toolbar{padding:0 10px;gap:8px}#project-preview-status{font-size:8px}.project-preview-toolbar button{font-size:9px}.project-file-label{padding:7px 12px;font-size:9px}.project-editor{font-size:12px;padding:10px}.project-edit-actions{gap:9px;padding:4px 10px}.project-edit-actions button{min-height:44px;font-size:9px}.deck[data-has-project=true] .mission-dock{bottom:119px;padding:8px 12px 3px}.deck[data-has-project=true] .composer-entry{flex-direction:row;align-items:center;gap:10px}.deck[data-has-project=true] .composer-entry textarea{min-height:40px;max-height:45px;font-size:11px;flex:1}.deck[data-has-project=true] .composer-entry .launch{min-width:90px;max-width:115px;font-size:10px}.deck[data-has-project=true] .composer-toolbar{min-height:32px}.deck[data-has-project=true] .composer-toolbar .settings-button{min-height:32px}.deck[data-has-project=true] .scene-state{top:34px}.deck[data-has-project=true] .scene-state h2{font-size:31px;-webkit-line-clamp:1}.deck[data-has-project=true] .scene-state>div{max-width:100%}.deck[data-has-project=true] .run-state{flex-direction:row;gap:12px;flex-wrap:wrap}.project-check code{white-space:pre-wrap}
+}
+.project-file-name,.project-file-owner,.project-edit-actions button{min-height:44px}
+@media(max-width:760px){.project-body{grid-template-rows:105px minmax(0,1fr)}}
+/* Fullscreen owns one viewport; child minimums scroll inside it, never resize the host in a loop. */
+.deck[data-display=fullscreen]{height:100svh;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
+.deck[data-display=fullscreen]>.masthead,.deck[data-display=fullscreen]>.site-footer,.deck[data-display=fullscreen]>.preview-banner{flex-shrink:0}
+.deck[data-display=fullscreen]>.flight-deck{height:auto;flex:1 0 640px;min-height:640px}
+@media(max-width:760px){.deck[data-display=fullscreen]>.flight-deck{flex-basis:820px;min-height:820px}}
+/* Once files arrive, the project is the primary surface. */
+.deck[data-has-project=true]>.flight-deck{height:860px;min-height:860px}
+.deck[data-has-project=true] .project-workspace{top:115px;bottom:155px}
+.deck[data-has-project=true] .scene-state{top:24px}
+.deck[data-has-project=true] .scene-state h2{font:400 14px/1.5 var(--sans);color:var(--muted);letter-spacing:0;-webkit-line-clamp:1}
+.deck[data-has-project=true] .mission-dock{bottom:82px;padding:6px 16px;width:min(1000px,calc(100% - 64px))}
+.deck[data-has-project=true] #mission-composer{display:flex;align-items:center;gap:14px}
+.deck[data-has-project=true] .composer-entry{flex:1;min-width:0;gap:16px}
+.deck[data-has-project=true] .composer-entry textarea{height:32px;min-height:32px;max-height:32px;flex:1;min-width:0;font-size:12px;white-space:nowrap;overflow:hidden;resize:none}
+.deck[data-has-project=true] .composer-entry .launch{min-height:44px}
+.deck[data-has-project=true] .composer-toolbar{margin:0;padding:0;min-height:0;gap:0;border:0;flex-shrink:0}
+.deck[data-has-project=true] #limits-note{display:none}
+.deck[data-has-project=true][data-display=fullscreen]>.flight-deck{height:auto;flex-basis:860px;min-height:860px}
+@media(max-width:760px){
+ .deck[data-has-project=true]>.flight-deck{height:1000px;min-height:1000px}
+ .deck[data-has-project=true] .project-workspace{top:125px;bottom:185px}
+ .deck[data-has-project=true] .mission-dock{bottom:119px;width:calc(100% - 32px);padding:6px 12px}
+ .deck[data-has-project=true] #mission-composer{gap:10px}
+ .deck[data-has-project=true] .composer-entry{gap:10px}
+ .deck[data-has-project=true] .composer-entry textarea{font-size:12px;min-height:32px;max-height:32px}
+ .deck[data-has-project=true] .composer-toolbar .settings-button{min-width:70px;min-height:44px;max-width:85px;font-size:9px;line-height:1.4;text-align:right}
+ .deck[data-has-project=true][data-display=fullscreen]>.flight-deck{height:auto;flex-basis:1000px;min-height:1000px}
+}

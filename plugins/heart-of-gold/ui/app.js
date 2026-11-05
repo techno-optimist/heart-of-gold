@@ -1,6 +1,7 @@
 import { App } from '@modelcontextprotocol/ext-apps';
 import { createSwarmField } from '../../../public/swarm-field.mjs';
 import { flightFieldState } from './swarm-adapter.mjs';
+import { normalizeProject, createProjectWorkspace } from './project-preview.mjs';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
@@ -10,7 +11,7 @@ const executions = new Set(['not_started', 'guided_passes', 'native_agents']);
 const clip = (value, max = 2000) => typeof value === 'string' ? value.slice(0, max) : '';
 const label = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const isPreview = window.parent === window;
-const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.4.1' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
+const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.5.0' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
 const state = { snapshot: null, selectedId: null, dirty: false, editing: false, missionEditing: false, pending: null, receivedAt: null, connected: false, canMessage: false, busy: false, sentRevision: null, revision: 0, hostContext: {}, lastMessage: '', flight: null, remoteSignature: '', sync: 'waiting', expired: false, polling: false, pollFailures: 0, unchangedReads: 0, awaitingUpdate: false, messageUnconfirmed: false, messageRevision: null, milestone: '', evidenceKey: '', questionsKey: '', tornDown: false, cached: false, authoritativeSnapshot: null, authoritativeReceivedAt: null };
 const crewRows = new Map();
 const shipLog = [];
@@ -20,6 +21,10 @@ let appliedMotionPause = false;
 const swarmField = createSwarmField({ stage: $('star-map'), canvas: $('swarm-canvas'), nodesLayer: $('map-nodes'), onSelect: id => {
   if (id) selectMember(id);
 } });
+const projectWorkspace = createProjectWorkspace({ root: $('project-workspace'), onInspectMember: selectMember,
+  onRequestEdits: edits => sendToChat('Apply my source edits to this project and update the same flight deck.', () => ({ flightId: state.flight.id, writeToken: state.flight.writeToken, expectedRevision: state.flight.revision, requestedAction: 'apply_project_edits', ...edits, progressInstructions: 'Reconcile these local edited files with the latest project revision, preserve unrelated files, and report the actual resulting complete file set through update_project on this same flight. Do not claim a test passed unless it was run. Do not create another flight deck.' }), 'project_edit'),
+  openLink: url => { if (app && state.connected) app.openLink({ url }).catch(() => notify('The host could not open this project link.', 'error')); else window.open(url, '_blank', 'noopener,noreferrer'); },
+});
 let displayedMission = '';
 let pollTimer;
 
@@ -76,6 +81,7 @@ function rememberFlight(result) {
   return true;
 }
 function describeMilestone(previous, next) {
+  if (next.project && previous?.project?.revision !== next.project.revision) return `Project revision ${next.project.revision} received · ${next.project.files.length} real files.`;
   if (next.status === 'complete') return 'Crew complete. The report is ready.';
   if (next.status === 'partial') return 'Partial result reported. Open the result for the remaining gaps.';
   const changed = next.members.filter((member) => previous?.members.find((old) => old.id === member.id)?.status !== member.status);
@@ -89,7 +95,7 @@ function describeMilestone(previous, next) {
 }
 function syncFieldMotion() {
   const reportsUnavailable = !isPreview && (!state.connected || state.expired || state.cached || state.sync === 'reconnecting');
-  const pause = motionPaused || reportsUnavailable;
+  const pause = motionPaused || reportsUnavailable || !!state.snapshot?.project;
   if (pause !== appliedMotionPause) { appliedMotionPause = pause; swarmField.setPaused(pause); }
 }
 function refreshSyncLabel() {
@@ -204,6 +210,7 @@ function normalizeSnapshot(input) {
     deliverable: clip(input.deliverable, 1000), constraints: (Array.isArray(input.constraints) ? input.constraints : []).slice(0, 8).map((v) => clip(v, 500)).filter(Boolean),
     summary: clip(input.summary, 6000), openQuestions: (Array.isArray(input.openQuestions) ? input.openQuestions : []).slice(0, 8).map((v) => clip(v, 500)).filter(Boolean),
     provenance: { source: 'host-reported', verified: false, label: 'Reported by the chat host. Not independently verified.' },
+    project: normalizeProject(input.project, new Set(members.map(member => member.id))),
   };
 }
 
@@ -281,6 +288,7 @@ function recordObservedRevision(previous, next) {
     }
     if (previous.mission !== next.mission) messages.push('Mission updated.');
     if (previous.summary !== next.summary) messages.push('Lead synthesis updated.');
+    if (next.project && previous.project?.revision !== next.project.revision) messages.push(`Project revision ${next.project.revision} received: ${next.project.files.length} files, ${next.project.changes.length} changed.`);
     if (!messages.length) messages.push('Board revision received.');
   }
   const receivedAt = new Date().toISOString();
@@ -352,6 +360,9 @@ function renderInspector() {
 function render() {
   const snapshot = state.snapshot;
   $('deck').dataset.hasSnapshot = String(!!snapshot);
+  $('deck').dataset.hasProject = String(!!snapshot?.project);
+  $('pause-motion').hidden = !!snapshot?.project;
+  projectWorkspace.update(snapshot?.project || null, snapshot?.members || [], !state.busy && !state.messageUnconfirmed && !state.expired && !state.cached && state.connected && state.canMessage && !!state.flight?.writeToken);
   $('deck').dataset.phase = snapshot?.status || 'idle';
   if (!snapshot) {
     renderMap(); renderCrewList(); renderInspector(); renderShipLog();
@@ -405,7 +416,7 @@ function render() {
   else if (!isPreview && state.connected && !state.flight) truth = 'This older snapshot is static. Ask the chat to open a new persistent flight deck.';
   else if (state.connected && !state.canMessage) truth = 'This host cannot receive messages from the deck. Ask it to run or challenge the crew directly in the conversation.';
   writeText('truth-note', truth);
-  $('limits-note').textContent = snapshot.constraints.length ? `${snapshot.members.length} roles · ${snapshot.constraints.length} constraints · 2 branch levels max` : '7 roles maximum · 2 branch levels';
+  $('limits-note').textContent = snapshot.project ? `${snapshot.project.files.length} reported files · project revision ${snapshot.project.revision}` : snapshot.execution !== 'not_started' ? 'Awaiting project files' : snapshot.constraints.length ? `${snapshot.members.length} roles · ${snapshot.constraints.length} constraints · 2 branch levels max` : '7 roles maximum · 2 branch levels';
 }
 
 function startRoleEdit() {
@@ -504,7 +515,7 @@ async function sendToChat(message, context, purpose) {
     }
     if (result?.isError) throw new Error('The host declined the message. Your draft is still here.');
     state.awaitingUpdate = true; state.unchangedReads = 0;
-    state.milestone = purpose === 'deploy' ? 'Deployed to the chat. Waiting for its first report.' : 'Challenge sent. Waiting for the revised report.';
+    state.milestone = purpose === 'deploy' ? 'Deployed to the chat. Waiting for its first report.' : purpose === 'project_edit' ? 'Source edits sent. Waiting for the revised project.' : 'Challenge sent. Waiting for the revised report.';
     notify('');
     return true;
   } catch (error) {
@@ -592,7 +603,7 @@ if (isPreview) {
   };
   app.ontoolcancelled = () => notify('The host cancelled this request. No new work has been reported.');
   app.onhostcontextchanged = applyHostContext;
-  app.onteardown = async () => { state.tornDown = true; stopPolling(); swarmField.destroy(); return {}; };
+  app.onteardown = async () => { state.tornDown = true; stopPolling(); swarmField.destroy(); projectWorkspace.destroy(); return {}; };
   const connectingNotice = setTimeout(() => { if (!state.connected) notify('Still waiting for the chat bridge. This view cannot deploy until the host connects.'); }, 8000);
   app.onclose = () => { stopPolling(); state.connected = false; state.canMessage = false; render(); };
   app.connect(undefined, { timeout: 12000 }).then(() => { clearTimeout(connectingNotice); state.connected = true; state.canMessage = !!app.getHostCapabilities()?.message?.text; applyHostContext(app.getHostContext() || {}); render(); schedulePoll(0); }).catch(() => { clearTimeout(connectingNotice); state.connected = false; notify('The chat bridge could not connect. Reopen Heart of Gold from the conversation.', 'error'); render(); });

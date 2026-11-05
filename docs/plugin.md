@@ -1,14 +1,15 @@
 # Heart of Gold, in the chat
 
-A small crew for big questions. One flight deck stays in the chat while the crew works: the plan becomes actual starts, contributions, critique, and synthesis in that same card. The chat host performs the work. ProjectForty2's MCP service holds the latest reported state for the deck; it does not run an external model.
+A small crew for real work. One flight deck stays in the chat while the host builds: actual source files, crew contributions, checks, and synthesis arrive in that same card. ProjectForty2's MCP service holds the latest supplied state; the host's tools perform the work.
 
-This is the `0.4.1` plugin package, separate from the website's release numbering. It keeps working motion tied to available reports and adds bounded recovery for a transient board-update error within the existing one-card protocol. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
+This is the `0.5.0` plugin package, separate from the website's release numbering. It adds actual project files and revision-bound reported checks to the existing one-card protocol. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
 
 ## What you get
 
 - **Deploy the drive:** a reusable skill that turns the user's task into useful workstreams, includes a skeptic, and reconciles the work into one deliverable.
 - **A bounded crew:** 3–7 members including the lead, at most two delegation levels. Generic presets become task-specific output contracts.
 - **One inspectable flight deck:** `build_crew` opens the card once; data-only `show_flight` calls update the same flight. The mounted card reads the latest snapshot. Evidence links and unresolved questions stay with the contributions.
+- **Actual project revisions:** data-only `update_project` receives the selected source files at real milestones, with crew attribution and reported checks bound to the submitted content. Inspect source and an isolated preview where the host supports it. This does not run a server-side build or deploy the project.
 - **The ProjectForty2 canvas:** the website's shared cursor engine, dark drafting field, mission dock, and embedded Cormorant Garamond / DM Sans fonts, adapted to the chat frame. Engage drive uses native chat power; provider connection and private website history are separate.
 - **A useful fallback:** if the host cannot delegate, the same assistant performs clearly labeled guided passes. If embedded UI is unavailable, the answer remains useful in text.
 
@@ -26,11 +27,13 @@ After installation, invoke Heart of Gold in a new chat, or invoke its `deploy-dr
 
 > Plan a crew for this task. Show the workstreams first and wait before doing the work.
 
+> Build a small task-board website with add, complete, filter, and remove controls. Use the available host file and browser tools, show genuine source revisions in this deck, and include a reviewer. Do not publish it publicly.
+
 The primary action in the widget sends a follow-up request to the host. It is not an independent server job. Work starts when the host actually starts it, and worker completion appears when the host reports the result. These are meaningful milestones, not live token streams or independently observed telemetry. Follow-up work and results stay in the same deck; the final chat response can be brief.
 
 ## One card, updated in place
 
-Only `build_crew` attaches the UI resource. `show_flight` updates temporary server state without attaching a template, and the existing component uses a data-only read tool to refresh itself. This follows OpenAI's separation of render tools from data tools and its example of `app.callServerTool` updating a mounted component. [Official UI guidance](https://developers.openai.com/plugins/build/chatgpt-ui#separate-data-processing-from-ui-rendering).
+Only `build_crew` attaches the UI resource. `show_flight` updates crew state and `update_project` updates selected files without attaching a template. Both advance the same flight revision, and the existing component uses a data-only read tool to refresh itself. This follows OpenAI's separation of render tools from data tools and its example of `app.callServerTool` updating a mounted component. [Official UI guidance](https://developers.openai.com/plugins/build/chatgpt-ui#separate-data-processing-from-ui-rendering).
 
 The host remains the source of work claims. The lead reports actual worker start, completion, failure, and cancellation; related events may be batched. Guided passes remain explicitly one assistant. A moving cursor does not mean the server is watching model tokens. Selection, expanded contributions, and other presentation choices belong to the mounted UI, so refreshing data need not replace the card or reset those choices.
 
@@ -39,6 +42,16 @@ An observed start begins a member's continuous journey through the shared field;
 Motion also pauses when the connection or refresh fails, the flight expires, or a cached view awaits verification. A successful read permits motion again while preserving the user's pause choice. A transient internal error while reporting permits one identical update retry on the same flight and revision; conflicts require reconciliation. This never restarts workers, and a reporting failure does not mean their work failed.
 
 Temporary state can expire or disappear on a server restart. The deck should say that its connection is unavailable and preserve any already displayed result, rather than marking unfinished work complete or silently creating another card. The chat can still carry the requested deliverable. A new card is appropriate for a new mission or an explicit request to reopen one.
+
+## Build, then show the actual files
+
+The host creates and edits the artifact with its available tools. The lead reports real working member status, then sends the complete current selection of files through `update_project` at useful milestones. Each file names its contributing crew member; native child attribution must match the worker ID already reported by the host. An actual source revision may be supplied when known. A file list is not a workspace connection: the plugin cannot browse the user's repository or discover files itself.
+
+The service computes file hashes, a canonical project digest, and a change summary against the immediately preceding file set. Check records are bound to that submitted project revision and digest. Their outcomes remain host-reported: a syntax pass, source inspection, and a browser interaction are different evidence. The host should actually exercise the requested behavior and mark unexecuted checks `not_run`. Do not manufacture intermediate edits to make a finished artifact look live.
+
+Projects contain 1–24 supported text files, up to 64 KiB each and 256 KiB including project metadata. HTML, CSS, JavaScript, Markdown, JSON, and plain text are supported source types. The latest project replaces the previous temporary file set; old source versions are not a retained history. Keep the durable artifact in the host workspace or another user-controlled location. The plugin does not install dependencies, run server-side code, fetch repository links, or publish a site.
+
+Preview runs selected supported source in an isolated browser frame where available. Nested frames require an explicit origin allowlist in ChatGPT; the embedded page also needs its own network policy. A source-only view remains useful when the current host cannot run that preview. Preview permission does not authorize public deployment. [Official iframe guidance](https://developers.openai.com/plugins/build/chatgpt-ui#content-security-policy-csp), [embedded-page security](https://developers.openai.com/plugins/guides/security-privacy#network-access).
 
 ## Install the complete package locally
 
@@ -85,7 +98,7 @@ Official guidance explains that imported MCP declarations can produce a Desktop-
 2. Build an account-specific archive from the repository root, replacing the example argument with your registered app ID:
 
    ```sh
-   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.4.1
+   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.5.0
    ```
 
 3. In ChatGPT **Plugins → + → Upload archive**, upload this private ZIP, or use the existing personal plugin's update action. Inspect the imported details and select **Install plugin** when available. Start setup or a new Work chat and verify the skill and connected tools. Account/workspace policies still apply.
@@ -98,11 +111,11 @@ The public directory is the intended simpler installation path after review. The
 
 ## What leaves the chat
 
-Tool arguments contain the mission, constraints, member assignments, result summaries, and any evidence URLs the host sends. ProjectForty2 keeps the latest supplied snapshot in bounded temporary server memory so one mounted deck can read updates. This is server state, not a stateless transformation. It is not written to a durable flight database, and service restart loses it. The plugin does not call another model. Hosting infrastructure can still process ordinary request metadata; the chat provider also has its own retention rules. Do not describe the workflow as staying entirely inside the chat.
+Tool arguments contain the mission, constraints, member assignments, result summaries, and any evidence URLs the host sends. Artifact updates additionally contain selected paths and exact source text, attribution, reported checks or commands, and optional source revision/project links. ProjectForty2 keeps the latest supplied snapshot and project in bounded temporary server memory so one mounted deck can read updates. This is server state, not a stateless transformation. It is not written to a durable flight database, and service restart loses it. The plugin does not call another model. Hosting infrastructure can still process ordinary request metadata; the chat provider also has its own retention rules. Do not describe the workflow as staying entirely inside the chat.
 
-Access expires two hours after creation, without renewal by reads or updates. Expired entries are removed on access or the next cleanup sweep, scheduled every 60 seconds. Only the latest snapshot is retained, with a maximum of 96 KiB per flight, 128 flights, and 8 MiB per server process. Capacity rejects new/oversized work instead of evicting an active flight.
+Access expires two hours after creation, without renewal by reads or updates. Expired entries are removed on access or the next cleanup sweep, scheduled every 60 seconds. Only the latest snapshot and project are retained, with a maximum of 384 KiB per combined flight, 128 flights, and 8 MiB per server process. Capacity rejects new/oversized work instead of evicting an active flight.
 
-Send concise necessary summaries, not credentials or entire private attachments. Users who ask for no remote sharing get the text workflow without MCP calls. Flight access uses private capabilities returned for that flight; these are not provider credentials or a login account. Keep them out of public links and delegated worker prompts. The plugin cannot access private website runs. See the [plugin privacy policy](https://projectforty2.ai/heartofgold/plugin-privacy.html) for the current retention bounds.
+Send only scoped summaries and selected project files, not credentials or unrelated private attachments. A one-time disclosure explains source sharing before the build workflow uploads it; an already authorized project connection needs no redundant confirmation. Users who ask for no remote sharing get the host-only workflow without MCP calls. Flight access uses private capabilities returned for that flight; these are not provider credentials or a login account. Keep them out of public links, preview code, and delegated-worker prompts. The plugin cannot access private website runs. See the [plugin privacy policy](https://projectforty2.ai/heartofgold/plugin-privacy.html) for the current retention bounds.
 
 ## Package layout and maintenance
 
@@ -124,7 +137,7 @@ The portable package uses the Agent Plugins `1.0.0` schemas, with OpenAI listing
 Create a release archive from the repository root with Node 22+ and Python 3 (standard library only):
 
 ```sh
-node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.4.1.zip
+node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.5.0.zip
 ```
 
 The ZIP has `plugin.json` and `mcp.json` directly at its root, alongside `LICENSE`, `skills/`, and `assets/`. It excludes the website, UI source/build output, marketplace catalog, dependencies, and local data. The packager rejects symlinks, unreviewed file types, missing referenced assets, and common credential/private-path patterns; it verifies the archive and prints its SHA-256. Identical source files produce identical ZIP bytes. These checks do not replace source review or the platform's own validation. Creating the ZIP does not install, upload, submit, or approve it.

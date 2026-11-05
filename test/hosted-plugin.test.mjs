@@ -52,7 +52,7 @@ test('MCP permits exact configured host origins and server-to-server requests on
   const { rpc, flight } = await fixture(t);
   for (const origin of [undefined, ORIGIN, 'https://chatgpt.com', 'https://chat.openai.com']) {
     const { response, value } = await rpc('tools/list', {}, { ...(origin ? { Origin: origin } : {}), 'Sec-Fetch-Site': 'cross-site' });
-    assert.equal(response.status, 200); assert.equal(value.result.tools.length, 4);
+    assert.equal(response.status, 200); assert.equal(value.result.tools.length, 5);
     assert.equal(response.headers.get('access-control-allow-origin'), origin || null);
     if (origin) assert.equal(response.headers.get('vary'), 'Origin');
   }
@@ -137,7 +137,7 @@ test('hosted resource delivery is the built standalone MCP App and cannot hydrat
   assert.equal(response.status, 200);
   const content = value.result.contents[0];
   assert.equal(content.mimeType, FLIGHT_RESOURCE_MIME); assert(content.text.includes('<!doctype html>'));
-  assert.deepEqual(content._meta.ui.csp, { connectDomains: [], resourceDomains: [] });
+  assert.deepEqual(content._meta.ui.csp, { connectDomains: [], resourceDomains: [], frameDomains: ['https://projectforty2.ai'] });
   assert(!content.text.includes('/api/connect')); assert(!content.text.includes('/api/runs')); assert.equal(flight.sessions.entries.size, 0);
 });
 

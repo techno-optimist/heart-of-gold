@@ -10,7 +10,7 @@ Don't Panic. Bring a towel. Check the work.
 
 | Flight mode | What happens |
 | --- | --- |
-| **Chat plugin — preview** | Build an editable crew inside a compatible chat. The host does the work with real delegation when available, or clearly labeled passes by one assistant. No provider key required. |
+| **Chat plugin — preview** | Build with the host’s available tools and inspect actual source revisions, crew attribution, and reported checks in one deck. Native workers when available; labeled passes otherwise. No provider key required. |
 | **Hosted API crew — v0.2** | Connect your own OpenAI, Anthropic, or xAI API key, choose an account-listed model, and run a bounded text mission. The server coordinates real provider calls. |
 | **Local Codex** | Your installed Codex CLI runs bounded tasks in read-only sessions. The CLI manages its authentication. |
 | **Flight simulator** | A scripted demonstration exercises delegation and the interface. No model calls; output is demonstration content. |
@@ -24,7 +24,7 @@ The standalone alpha produces text deliverables. The chat plugin uses the tools 
 
 ## Deploy the drive in chat
 
-The [Heart of Gold plugin](docs/plugin.md) keeps one cursor constellation in the chat while the crew works. Shape assignments, branch specialists, deploy the plan, then watch actual host-reported starts and contributions update that same deck. The chat supplies the intelligence; ProjectForty2 holds the latest snapshot temporarily in server memory so the card can refresh. Flight access expires after two hours, with no durable history. See the [plugin privacy notice](https://projectforty2.ai/heartofgold/plugin-privacy.html).
+The [Heart of Gold plugin](docs/plugin.md) keeps one flight deck in the chat while the crew builds. The host creates actual artifacts with its available tools, then sends selected source files, member attribution, and check results at genuine milestones. Inspect those files and an isolated preview where supported; cursor movement is not the evidence of progress. ProjectForty2 holds the latest flight and selected project temporarily in server memory. Access expires after two hours, with no durable source history or automatic public deployment. Host file, browser, and delegation capabilities still apply. See the [plugin privacy notice](https://projectforty2.ai/heartofgold/plugin-privacy.html).
 
 [Try the visual builder](https://projectforty2.ai/heartofgold/plugin-preview/) · [Install and use](docs/plugin.md) · [Public review checklist](docs/plugin-review.md)
 

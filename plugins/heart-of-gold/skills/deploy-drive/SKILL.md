@@ -1,6 +1,6 @@
 ---
 name: deploy-drive
-description: "Use Heart of Gold to organize a bounded task into a small crew, perform the work with actual host delegation or clearly labeled guided passes, challenge the findings, and synthesize a useful deliverable. Use when the user asks for Heart of Gold, a task swarm, or a debate team; preserve plan-only requests."
+description: "Use Heart of Gold to organize a bounded task into a small crew, build real artifacts with the host's available tools, report source revisions and contributions in one deck, and synthesize a useful deliverable. Use when the user asks for Heart of Gold, a task swarm, or a debate team; preserve plan-only requests and distinguish native workers from guided passes."
 ---
 
 # Deploy the drive
@@ -22,7 +22,7 @@ Keep execution claims accurate if host capabilities change. Preserve real delega
 
 ## Build the crew and do the work
 
-When available, call Heart of Gold's `build_crew` **once per mission** to open the deck. Before the first remote tool call, briefly disclose that mission and contribution summaries go to ProjectForty2 and are held temporarily in server memory to update that deck. Do not ask for another confirmation when the user has already authorized this workflow. Send only the text needed for the board; omit credentials and unnecessary private material. If the user forbids remote sharing, do the workflow entirely in chat without these tool calls.
+When available, call Heart of Gold's `build_crew` **once per mission** to open the deck. Before the first remote tool call, briefly disclose once that mission and contribution summaries go to ProjectForty2 temporarily; for a build mission, include the selected source files and check results in that disclosure. Do not add another approval stage when the user has authorized connecting this project to the deck. Send only scoped project content; omit credentials and unrelated private files. If the user forbids remote sharing, do the workflow entirely in chat without these tool calls.
 
 Retain the returned flight credentials for subsequent calls; treat them as private access capabilities. Do not print them in the answer, place them in evidence links, or pass them to delegated workers. The lead owns updates to the shared deck.
 
@@ -32,15 +32,25 @@ Use existing host tools to fulfill each output contract within the user's scope.
 
 The lead coordinates dependencies and synthesizes. A reviewer should examine actual draft work or arguments, name the strongest specific failure, and propose a correction. Resolve substantive disagreements in the deliverable; do not merely concatenate member summaries. If evidence is missing, deliver what is useful and identify the gap.
 
+## Make a build visible through real artifacts
+
+For a request to build a site or another file-based deliverable, create and edit actual files using the host's available file/workspace tools. Assign bounded file ownership to native workers when available; otherwise perform clearly labeled passes yourself. Keep the user's existing project and constraints. If file-writing, execution, or browser tools are unavailable, state the specific limit and provide useful source or a plan without claiming a saved, running, or tested artifact. Installing this plugin does not grant those host capabilities.
+
+Publish the actual working state through `show_flight` before attributing files to a member. Read [the flight contract](references/flight-contract.md), then call the UI-less `update_project` on the **same flight** at real milestones: an initial usable structure, integrated functionality, and a material review correction when one is needed. Submit the complete current set of selected files, read from the actual artifact; do not stage artificial edits or replay a finished result as if it were being built. Preserve stable paths, accurate member attribution, and the actual native worker ID where required. The lead integrates concurrent changes before sending a revision; workers do not receive the board capability. Use a real source revision when available or omit it.
+
+Run checks against that exact source revision with the host's actual tools. For a website, exercise its core interaction in a real browser when available; a syntax check or screenshot alone does not prove that it works. Send each check's actual result and relevant command or interaction description. Mark unexecuted checks `not_run`; do not invent passes or carry a stale pass onto changed files. Server-computed hashes bind the submitted content and claims; they do not verify that the claimed tests ran.
+
+Keep `show_flight` for actual crew statuses and `update_project` for artifact revisions. Neither tool performs the workers' task, runs a server-side build, installs dependencies, writes a repository, or publishes a site. An isolated preview is a view of supplied code, not permission to expose the user's code publicly. Publishing, deployment, repository changes, and external actions retain their normal task-specific scope. Use source-only display when the current host cannot run the preview, and keep the actual artifact available through the host's deliverable mechanism.
+
 ## Update the same deck
 
 Read [the flight contract](references/flight-contract.md) before forming `show_flight` arguments. Discover the actual namespaced tools in the host; do not assume a fixed tool prefix.
 
-`build_crew` is the only card-opening tool. After it returns, use data-only `show_flight` calls to update **that same flight**; do not call `build_crew` again for a plan edit, worker update, critique, or result. The mounted deck reads the latest state itself. The assistant should not poll it or call a render tool to make progress visible.
+`build_crew` is the only card-opening tool. After it returns, use data-only `show_flight` and, for artifacts, `update_project` calls to update **that same flight**; do not call `build_crew` again for a plan edit, worker update, artifact revision, critique, or result. Both writes advance the shared flight revision: retain each successful response before making the next write. The mounted deck reads the latest state itself. The assistant should not poll it or call a render tool to make progress visible.
 
 Publish meaningful milestones promptly: actual worker start after the host returns its ID, observed completion/failure/cancellation, then the lead's synthesis. Batch events that arrive together. For guided passes, update when a substantive pass begins or delivers its result. Never manufacture progress between events, send per-token updates, or imply the plugin observes a worker independently. A cursor moving across the deck is presentation, not a live token stream.
 
-If `show_flight` returns a transient `Internal error` (`-32603`) without a specific rejection, retry that exact update **once**, retaining the same flight, write capability, snapshot, and `expectedRevision`. Do not rerun workers, repeat their work, or open another card. If the retry returns a conflict, reconcile its current snapshot as described in the flight contract; do not blindly advance the revision. Explicit rejection, invalid input, unavailable flight, or a repeated internal error requires addressing the reported condition instead of another blind retry. A failed board update does not establish that the workers failed: preserve their actual results and explain any remaining display-update failure briefly.
+If `show_flight` or `update_project` returns a transient `Internal error` (`-32603`) without a specific rejection, retry that exact update **once**, retaining the same flight, write capability, payload, and `expectedRevision`. Do not rerun workers, repeat their work, or open another card. If the retry returns a conflict, reconcile its current snapshot as described in the flight contract; do not blindly advance the revision. Explicit rejection, invalid input, unavailable flight, or a repeated internal error requires addressing the reported condition instead of another blind retry. A failed board update does not establish that the workers failed: preserve their actual results and explain any remaining display-update failure briefly.
 
 Keep member IDs stable when revising a crew. Set `working`, `complete`, `cancelled`, or `failed` only from actual work or observed host events. A completed member needs its concrete result; a complete flight needs every member's result and the lead's synthesis. Report a partial result when the requested work remains incomplete. Keep planned work visibly distinct from performed work.
 

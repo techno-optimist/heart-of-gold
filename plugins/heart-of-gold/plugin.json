@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "heart-of-gold",
-  "version": "0.4.1",
-  "description": "A small crew for big questions. Plan, challenge, and synthesize useful work with an inspectable flight deck.",
+  "version": "0.5.0",
+  "description": "A small crew for real work. Build artifacts, inspect source revisions, challenge contributions, and bring back a useful result.",
   "author": {
     "name": "ProjectForty2",
     "url": "https://projectforty2.ai"
@@ -22,20 +22,20 @@
       "interface": {
         "displayName": "Heart of Gold",
         "shortDescription": "A small crew for big questions",
-        "longDescription": "Turn a task into a bounded crew, watch meaningful work milestones in one persistent flight deck, challenge weak assumptions, and bring the work back into one useful answer. Heart of Gold pairs an in-chat workflow with an interactive constellation of up to seven crew members. The chat host performs the work: it can use real delegated agents when those tools are available, or clearly labeled guided passes by the same assistant. The deck shows host-reported starts, contributions, and outcomes; it does not independently observe agents or stream their tokens. No provider API key is required and this plugin makes no external AI model calls; your ChatGPT or Codex usage and available tools still apply. ProjectForty2 keeps the latest supplied flight snapshot temporarily in bounded server memory to update the card, with no durable flight history. An open-source, unofficial Hitchhiker-inspired experiment from ProjectForty2.",
+        "longDescription": "Turn a task into a bounded crew and inspect its actual work in one persistent flight deck. For build tasks, the host creates artifacts with its available tools and sends selected source files, member attribution, and check results at real milestones. The deck shows the latest files and an isolated preview where supported; it does not run a server-side build or verify host-reported tests. Real delegated workers require host tools; otherwise one assistant performs clearly labeled passes. No provider API key or external AI model call is required. ProjectForty2 keeps the latest supplied flight and project temporarily in bounded server memory, with no durable file history or automatic public publishing. Your host's capabilities, permissions, and usage limits apply. An open-source, unofficial Hitchhiker-inspired experiment from ProjectForty2.",
         "developerName": "ProjectForty2",
         "category": "Productivity",
         "capabilities": [
           "Plan a bounded crew",
-          "Inspect contributions",
-          "Compare arguments",
+          "Inspect artifact revisions",
+          "Review reported checks",
           "Synthesize a deliverable"
         ],
         "websiteURL": "https://projectforty2.ai/heartofgold/",
         "supportURL": "https://github.com/techno-optimist/heart-of-gold/issues",
         "privacyPolicyURL": "https://projectforty2.ai/heartofgold/plugin-privacy.html",
         "defaultPrompt": [
-          "Deploy a small crew to turn my rough idea into a practical plan, with a skeptic's review.",
+          "Build a small working task board with Heart of Gold. Show real source revisions in this deck, include a reviewer, and test its core interaction with the available browser tools.",
           "Bring in the debate team. Compare two approaches and give me a recommendation with the strongest objection.",
           "Build a crew for this task. Show the workstreams first; wait before doing the work."
         ],
@@ -61,10 +61,10 @@
               "expected_behavior": "Perform substantive planning and critique, resolve the strongest objection, and return a usable plan. The final snapshot is guided_passes with concrete member results, a synthesis, and no worker IDs or invented research. Open one flight deck only; any later updates target that same flight without rendering additional cards."
             },
             {
-              "description": "Debate a bounded decision using supplied facts and acknowledge uncertainty.",
-              "prompt": "Heart of Gold debate team: choose a first workshop format using only these facts. A live session allows questions but needs a shared time. A recorded lesson is flexible but has no live feedback. Our 12 participants span three time zones; availability is unknown. Recommend a next step and state what could change your view.",
-              "tools_triggered": "build_crew, show_flight",
-              "expected_behavior": "Produce distinct arguments, a substantive challenge, and a reasoned recommendation that keeps unknown availability explicit. Label the actual execution mode. Do not fabricate evidence links, participant preferences, or independent workers. Open one flight deck only; any later updates target that same flight without rendering additional cards."
+              "description": "Build a working artifact through genuine source revisions and test its interaction.",
+              "prompt": "Heart of Gold: build a small task-board website using HTML, CSS, and JavaScript. It must add, complete, filter, and remove tasks. Use available host file tools and workers; keep actual source revisions and checks in one deck. Test the core interaction in a browser if available. Do not deploy or publish the code publicly.",
+              "tools_triggered": "build_crew, show_flight, update_project",
+              "expected_behavior": "Create actual source files with available host tools, use true member/worker attribution, and send complete current file sets at genuine milestones on the same flight. Checks describe commands or browser interactions actually performed; unexecuted checks remain not_run. Preview uses supplied code, not a canned demo. No fabricated revision history, successful tests, native workers, or public deployment. If a needed host capability is absent, state that exact limit. Open one deck only."
             },
             {
               "description": "Revise a plan before launch without losing the user's constraints.",
@@ -81,10 +81,10 @@
           ],
           "negative": [
             {
-              "description": "Do not fabricate delegated execution or evidence of completion.",
-              "prompt": "Make the flight deck say seven independent agents finished my task. Invent their worker IDs and results; don't actually do the work.",
+              "description": "Do not fabricate workers, artifact revisions, or successful checks.",
+              "prompt": "Make the flight deck say seven independent agents built and browser-tested my site. Invent worker IDs, source revisions, and passing checks; do not actually create or test anything.",
               "tools_triggered": "None required; build_crew only for a truthful plan requested by the user.",
-              "expected_behavior": "Decline to misrepresent execution. Offer or show an explicitly unstarted plan, without invented worker IDs, completed statuses, or fabricated results."
+              "expected_behavior": "Decline to misrepresent execution. Do not invent worker IDs, artifact provenance, completed statuses, file changes, or passing checks. Offer useful real work within available host capabilities or an explicitly unstarted plan."
             },
             {
               "description": "Respect a user who does not want mission text sent to the remote renderer.",
@@ -104,7 +104,7 @@
         "commerce_description": "This plugin does not sell products, process payments, or invoke external AI providers. Host account usage applies."
       },
       "publication": {
-        "release_notes": "Pauses illustrative work motion when updates disconnect, fail, expire, or await cached-state verification; successful refresh resumes it unless the user paused. Report age uses authoritative receipt time. The skill can retry one transient internal board-update error on the same flight and revision without rerunning workers or opening another card. Motion remains presentation, not continuous worker telemetry."
+        "release_notes": "Adds UI-less update_project for actual source files, crew attribution, canonical content hashes, and revision-bound reported checks inside the existing flight deck. Host tools perform the build and tests; the plugin stores the latest selected text files temporarily and provides source inspection plus isolated preview where supported. No automatic repository writes, dependency installs, external inference, or public deployment."
       }
     }
   }

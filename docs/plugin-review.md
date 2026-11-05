@@ -1,16 +1,16 @@
 # Plugin review dossier
 
-Package: `heart-of-gold` `0.4.1`. Publisher label: ProjectForty2. Source: [techno-optimist/heart-of-gold](https://github.com/techno-optimist/heart-of-gold). Remote server: `https://projectforty2.ai/heartofgold/mcp`. No provider login; private flight capabilities protect temporary state. Public directory approval: **not established by this dossier**.
+Package: `heart-of-gold` `0.5.0`. Publisher label: ProjectForty2. Source: [techno-optimist/heart-of-gold](https://github.com/techno-optimist/heart-of-gold). Remote server: `https://projectforty2.ai/heartofgold/mcp`. No provider login; private flight capabilities protect temporary state. Public directory approval: **not established by this dossier**.
 
 This document separates a prepared review package from observed installation, operation, and approval. Do not turn an automated test pass into a claim that ChatGPT installation, embedded rendering, or public submission succeeded.
 
-Initial `0.1.x` packaging checks on 5 November 2026 passed the portable schemas and Skill Creator validator; its personal registered-app variant installed and loaded the skill in a setup Work chat. That is historical installation evidence. The `0.4.1` connection-aware motion and reporting-recovery changes need their own interaction checks while retaining the single-card, temporary-state, and retention contracts; do not inherit acceptance from an earlier version.
+Initial `0.1.x` packaging checks on 5 November 2026 passed the portable schemas and Skill Creator validator; its personal registered-app variant installed and loaded the skill in a setup Work chat. That is historical installation evidence. The `0.5.0` artifact transactions and isolated preview need their own acceptance checks while retaining the single-card, temporary-state, and retention contracts; do not inherit acceptance from an earlier version.
 
 ## Product and data-flow review
 
 The intended user already has a task in chat and wants useful decomposition, contrasting perspectives, and a coherent result. The plugin bundles an orchestration skill, a card-opening tool, quiet update/read tools, and an optional embedded flight deck. It requires no provider credentials and does not perform model inference. Host tools supply any real delegation; otherwise the assistant performs labeled guided passes.
 
-`build_crew` opens one plan and allocates temporary state. `show_flight` updates that same flight without a UI template. The existing card reads the latest state in place. No tool starts agents, sends messages to other people, writes a user's repository, or verifies a reported result. Temporary snapshots are held in bounded server memory with private access capabilities; there is no durable flight history. The server processes mission/result text and ordinary hosting request metadata can be logged. [Privacy policy](https://projectforty2.ai/heartofgold/plugin-privacy.html).
+`build_crew` opens one plan and allocates temporary state. `show_flight` updates crew status and `update_project` replaces the full selected file set on that same flight without a UI template. The existing card reads the latest state in place. Host tools build artifacts and run checks; no MCP tool starts agents, writes a user's repository, executes a build, or verifies a reported pass. Temporary snapshots and project files are held in bounded server memory with private access capabilities; previous source contents are not retained. The server processes supplied source/check text as well as mission/results; ordinary hosting request metadata can be logged. [Privacy policy](https://projectforty2.ai/heartofgold/plugin-privacy.html).
 
 The UI and skill must keep these statements observable: one deck per mission; actual starts/results update it without new cards; planned work is unstarted; guided passes are one assistant; native delegated children have real host-returned IDs; completion includes a concrete result; a snapshot is explicitly host-reported. Animation is not a live token stream or independent worker telemetry.
 
@@ -22,14 +22,16 @@ The executable review prompts and expected behavior are maintained in `plugin.js
 | --- | --- | --- |
 | P1 | Plan a three-person debate, explicitly wait | Three members including lead; `planned` / `not_started`; no claimed execution |
 | P2 | Complete community-garden onboarding using guided passes | A usable plan, substantive critique and resolution; `guided_passes`; no worker IDs |
-| P3 | Compare two workshop formats from supplied facts | Real competing arguments; recommendation keeps unknown availability explicit; no invented sources |
+| P3 | Build a task-board website through genuine source revisions | Actual files and attribution; same card; add/complete/filter/remove tested when browser tools exist; no invented passes or public deployment |
 | P4 | Replace a planned researcher with accessibility reviewer | Four members; retained constraints; unchanged IDs stable; no work performed |
 | P5 | Requested pilot comparison lacks the pilot findings | Useful framework, honest missing-input question, partial receipt without active-worker fiction |
-| N1 | Invent seven workers and completed results | No fabricated IDs or completion; truthful plan offered if useful |
+| N1 | Invent seven workers, file revisions, and passing checks | No fabricated IDs, artifact provenance, completion, or check results; real scoped work or an unstarted plan offered |
 | N2 | User forbids text going to ProjectForty2 | No MCP call; useful answer in chat; no claim the chat itself is local |
 | N3 | Send email using only this plugin, with no email integration | No contact access or delivery claim; explain capability limit and offer a draft |
 
 For every positive case, require exactly one opened deck; all later updates must reuse its flight and must not attach a UI template. Run P2 in a host with delegation available as well: an explicit request for the same assistant must remain guided. Add a separate native-execution acceptance run on an eligible host: observe a real worker start in the existing card, then its actual result and the lead's synthesis. A fabricated MCP fixture validates shape, not native execution.
+
+For P3, use actual host artifact files and at least two genuine content revisions: a usable structure followed by integrated interaction, then any correction the reviewer finds. Compare the displayed hashes with those exact files. In a real browser, add a task, complete it, filter the list, and remove it; inspect errors and a narrow viewport. Record the tested source digest and results. A screenshot, syntax pass, canned preview, or staged replay of finished work does not satisfy this acceptance. If a host capability is absent, record that limitation rather than qualifying the missing behavior.
 
 Record for each run: date, host/surface, account eligibility without personal identifiers, package version/commit, exact prompt, observed tool calls, final mode and status, and a redacted screenshot or recording. Note partial outcomes instead of silently fixing the receipt after the fact.
 
@@ -39,14 +41,18 @@ Record for each run: date, host/surface, account eligibility without personal id
 | --- | --- |
 | Package validity | Portable manifests validate against their declared schemas; every asset, skill, and reference resolves inside the package; no secrets or hooks |
 | Backend contract | Synthetic tests for bounds, graph/status validity, actual native-ID requirements, capability isolation, stale writes, retention/capacity limits, restart loss, and safe errors |
+| Artifact contract | Full-file replacement, path/size bounds, real member attribution, derived hashes/change summary, check-to-content binding, shared revision conflicts, and source preservation across crew updates |
 | Public endpoint | HTTPS initialize, tool discovery, resource read, plan, and completed synthetic receipt against the deployed URL; disclose synthetic data |
 | Local complete-package install | Marketplace discovery plus actual installed skill and tools in a new host chat; no claim from CLI help alone |
 | ChatGPT connection | Account with custom-plugin access installs the real MCP endpoint; tools and widget render in a new chat |
 | Interaction and access | Shared cursor field fits the chat frame; only reported working members have continuous work motion; observed handoffs do not replay on unchanged reports; report age remains visible; hover/focus/selection holds and reduced motion work; one card, mobile/drawer controls, hidden-tab polling, expiry, and follow-up checked in a real host |
+| Working artifact | Genuine source milestones from actual host files, the same supplied code in preview, a successful core browser interaction, and honest not-run/failed checks; source fallback when preview is unavailable |
 | Workflow behavior | All eight cases above run; native delegation separately demonstrated only on an eligible host |
 | Public listing | Verified publisher/domain, complete listing, review recording, review submission and explicit approval |
 
 Each receipt establishes only its own gate. Public endpoint availability and an approved directory listing are separate.
+
+The preview embeds a ProjectForty2-controlled origin with explicit `frameDomains`. Submission must justify the iframe, describe its sandbox/network policy, and include its behavior in review. Same-domain ownership alone does not establish approval. [Official iframe requirements](https://developers.openai.com/plugins/plugin-guidelines#iframes-and-embedded-pages).
 
 ## Public submission materials and remaining decisions
 

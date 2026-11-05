@@ -8,6 +8,7 @@ import { DemoAdapter } from './lib/adapters.mjs';
 import { HostedSessions, SharedGate, WindowRateLimit } from './lib/hosted-sessions.mjs';
 import { discoverModels, ProviderAdapter, PROVIDERS } from './lib/provider-adapter.mjs';
 import { createPluginHandler } from './lib/plugin.mjs';
+import { PROJECT_PREVIEW_CSP, PROJECT_PREVIEW_SHELL } from './lib/project-preview-shell.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 export const BASE = '/heartofgold';
@@ -142,10 +143,20 @@ export async function createHostedServer({
         }
         await plugin.handle(req, res); return;
       }
+      // This public empty relay is the only cross-site embeddable document.
+      // Code arrives via postMessage from its parent, never in a URL or cookie.
+      if (url.pathname === `${BASE}/project-preview.html`) {
+        if (!['GET', 'HEAD'].includes(req.method)) throw httpError(405, 'METHOD_NOT_ALLOWED', 'Method not allowed.');
+        res.removeHeader('X-Frame-Options');
+        res.setHeader('Content-Security-Policy', PROJECT_PREVIEW_CSP);
+        res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), clipboard-read=(), clipboard-write=()');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(req.method === 'HEAD' ? undefined : PROJECT_PREVIEW_SHELL); return;
+      }
       if (req.method === 'GET' && url.pathname === `${BASE}/plugin-preview/`) {
         const html = await readFile(pluginResource, 'utf8');
         const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => `'sha256-${createHash('sha256').update(match[1]).digest('base64')}'`).join(' ');
-        res.setHeader('Content-Security-Policy', `default-src 'none'; script-src ${hashes}; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`);
+        res.setHeader('Content-Security-Policy', `default-src 'none'; script-src ${hashes}; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; frame-src ${publicOrigin}; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(html); return;
       }
       if (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin && req.headers.origin !== publicOrigin)) throw httpError(403, 'ORIGIN_DENIED', 'Requests must come from the ProjectForty2 flight deck.');

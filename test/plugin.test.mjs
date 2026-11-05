@@ -8,7 +8,7 @@ import { buildCrew, showFlight, flightSnapshotSchema, PRESETS, MAX_PLUGIN_BODY_B
 import { createPluginHandler, FLIGHT_RESOURCE_URI, FLIGHT_RESOURCE_MIME } from '../lib/plugin.mjs';
 
 const requestInput = snapshot => {
-  const { schemaVersion, view, capabilities, provenance, flight, unchanged, ...input } = snapshot;
+  const { schemaVersion, view, capabilities, provenance, flight, unchanged, project, ...input } = snapshot;
   if (!input.summary) delete input.summary;
   return input;
 };
@@ -144,10 +144,10 @@ test('MCP creates only one render tool; updates are UI-less and app polling tool
   const { rpc } = await fixture(t);
   const initialized = await rpc('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'test', version: '1' } });
   assert.equal(initialized.response.status, 200); assert.equal(initialized.value.result.serverInfo.name, 'heart-of-gold');
-  assert.equal(initialized.value.result.serverInfo.version, '0.4.1');
+  assert.equal(initialized.value.result.serverInfo.version, '0.5.0');
   assert.equal(initialized.response.headers.get('mcp-session-id'), null); assert.equal(initialized.response.headers.get('set-cookie'), null);
   const listed = await rpc('tools/list');
-  assert.deepEqual(listed.value.result.tools.map(tool => tool.name), ['build_crew', 'show_flight', 'read_flight', 'save_plan']);
+  assert.deepEqual(listed.value.result.tools.map(tool => tool.name), ['build_crew', 'show_flight', 'update_project', 'read_flight', 'save_plan']);
   for (const tool of listed.value.result.tools) {
     assert.deepEqual(tool.securitySchemes, [{ type: 'noauth' }]);
     assert.equal(tool.annotations.readOnlyHint, tool.name === 'read_flight'); assert.equal(tool.annotations.openWorldHint, false);
@@ -231,22 +231,60 @@ test('board expiration is fixed across MCP requests and only explicit valid capa
   assert.equal(missing.value.result.isError, true);
 });
 
+test('MCP publishes real bounded files to one board, preserves them through progress, and renders no new card', async t => {
+  const { rpc, directory } = await fixture(t);
+  const created = (await rpc('tools/call', { name: 'build_crew', arguments: { mission: 'Build an interactive task list.', preset: 'build', crewSize: 3 } })).value.result;
+  const working = requestInput(created.structuredContent); working.status = 'working'; working.execution = 'guided_passes';
+  working.members[0].status = 'working'; working.members[1].status = 'working';
+  const start = await rpc('tools/call', { name: 'show_flight', arguments: { ...working, ...writer(created.structuredContent) } });
+  assert.equal(start.value.result.structuredContent.flight.revision, 2);
+  const project = { title: 'Interactive task list', entrypoint: 'index.html', files: [
+    { path: 'index.html', content: '<!doctype html><link rel="stylesheet" href="style.css"><button id="add">Add</button><script src="app.js"></script>', memberId: working.members[1].id },
+    { path: 'app.js', content: 'document.querySelector("#add").onclick=()=>document.body.append("Task");\n/*' + 'original-source '.repeat(3500) + '*/', memberId: working.members[1].id },
+    { path: 'style.css', content: 'body{font-family:system-ui}\n/*' + 'style-source '.repeat(4000) + '*/', memberId: working.members[1].id },
+  ], checks: [{ name: 'Browser interaction', status: 'not_run', details: 'The interaction has not been exercised in a browser.', memberId: 'lead' }] };
+  assert(Buffer.byteLength(JSON.stringify(project)) > 96 * 1024);
+  const updated = await rpc('tools/call', { name: 'update_project', arguments: { ...writer(created.structuredContent), expectedRevision: 2, project } });
+  assert.equal(updated.response.status, 200); assert.equal(updated.value.result.isError, undefined);
+  assert.equal(updated.value.result.structuredContent.projectRevision, 1); assert.equal(updated.value.result.structuredContent.flight.revision, 3);
+  assert.equal(updated.value.result.structuredContent.files, 3); assert.equal(updated.value.result._meta?.ui, undefined);
+  assert.equal(updated.response.headers.get('set-cookie'), null); assert.equal(updated.response.headers.get('mcp-session-id'), null);
+  assert(!JSON.stringify(updated.value.result).includes(project.files[1].content));
+  const firstRead = (await rpc('tools/call', { name: 'read_flight', arguments: reader(created) })).value.result.structuredContent;
+  assert.equal(firstRead.project.files[1].content, project.files[1].content);
+  assert.equal(firstRead.project.checks[0].status, 'not_run'); assert.equal(firstRead.project.provenance.verified, false);
+  assert(flightSnapshotSchema.safeParse(Object.fromEntries(Object.entries(firstRead).filter(([key]) => !['flight', 'unchanged'].includes(key)))).success);
+  const progressed = await rpc('tools/call', { name: 'show_flight', arguments: { ...working, ...writer(created.structuredContent), expectedRevision: 3 } });
+  assert.equal(progressed.value.result.structuredContent.flight.revision, 4);
+  const after = (await rpc('tools/call', { name: 'read_flight', arguments: reader(created) })).value.result.structuredContent;
+  assert.deepEqual(after.project, firstRead.project);
+  const stale = await rpc('tools/call', { name: 'update_project', arguments: { ...writer(created.structuredContent), expectedRevision: 3, project } });
+  assert.equal(stale.value.result._meta.flightError.code, 'FLIGHT_CONFLICT');
+  assert.equal(stale.value.result.structuredContent.currentSnapshot.project.sourceDigest, firstRead.project.sourceDigest);
+  const bad = structuredClone(project); bad.files[0].memberId = 'not-a-member';
+  const invalid = await rpc('tools/call', { name: 'update_project', arguments: { ...writer(created.structuredContent), expectedRevision: 4, project: bad } });
+  assert.equal(invalid.value.result._meta.flightError.code, 'INVALID_PROJECT');
+  assert(!JSON.stringify(invalid.value.result).includes(project.files[1].content));
+  assert.deepEqual(await readdir(directory), ['flight-deck.html']);
+});
+
 test('MCP resource is self-contained with no network domains', async t => {
   const { rpc } = await fixture(t);
   const list = await rpc('resources/list'); assert.equal(list.value.result.resources[0].uri, FLIGHT_RESOURCE_URI);
   const read = await rpc('resources/read', { uri: FLIGHT_RESOURCE_URI });
   const resource = read.value.result.contents[0];
   assert.equal(resource.mimeType, FLIGHT_RESOURCE_MIME); assert(resource.text.includes('Flight deck fixture'));
-  assert.deepEqual(resource._meta.ui.csp, { connectDomains: [], resourceDomains: [] });
+  assert.deepEqual(resource._meta.ui.csp, { connectDomains: [], resourceDomains: [], frameDomains: ['https://projectforty2.ai'] });
+  assert.deepEqual(resource._meta['openai/widgetCSP'], { connect_domains: [], resource_domains: [], frame_domains: ['https://projectforty2.ai'] });
   assert.equal(resource._meta.ui.domain, 'https://projectforty2.ai');
   assert(!resource.text.includes('PRIVATE-A'));
 });
 
-test('v6 is the rendering cache key while earlier resources remain readable aliases', async t => {
+test('v7 is the rendering cache key while earlier resources remain readable aliases', async t => {
   const { rpc } = await fixture(t);
-  assert.equal(FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v6.html');
+  assert.equal(FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v7.html');
   const listed = (await rpc('resources/list')).value.result.resources;
-  assert.deepEqual(listed.map(resource => resource.uri), [FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v1.html', 'ui://heart-of-gold/flight-deck-v2.html', 'ui://heart-of-gold/flight-deck-v3.html', 'ui://heart-of-gold/flight-deck-v4.html', 'ui://heart-of-gold/flight-deck-v5.html']);
+  assert.deepEqual(listed.map(resource => resource.uri), [FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v1.html', 'ui://heart-of-gold/flight-deck-v2.html', 'ui://heart-of-gold/flight-deck-v3.html', 'ui://heart-of-gold/flight-deck-v4.html', 'ui://heart-of-gold/flight-deck-v5.html', 'ui://heart-of-gold/flight-deck-v6.html']);
   const outputs = await Promise.all(listed.map(resource => rpc('resources/read', { uri: resource.uri })));
   for (const [index, output] of outputs.entries()) {
     assert.equal(output.value.result.contents[0].uri, listed[index].uri);
