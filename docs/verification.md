@@ -63,3 +63,12 @@ Local checks: 86 tests passed for the initial package; the subsequent planning n
 A fresh Codex CLI session loaded the installed skill and called the real MCP tools (`build_crew` once and `show_flight` twice) to produce a complete community-garden plan with a skeptical review. This exercised three guided passes by one assistant, not native delegation. The CLI does not render the widget. That run found an unstarted-plan presentation mismatch, now corrected by normalizing entirely planned crews to editable, unstarted blueprints.
 
 The live transport receipt is [plugin-smoke.json](receipts/plugin-smoke.json). Private account connection IDs and local host logs are excluded from this repository. ChatGPT visual acceptance is tracked separately and must not be inferred from a source package, CLI execution, or the local bridge harness.
+
+
+### Actual personal ChatGPT acceptance
+
+The personal registered MCP connection and a private package variant (registered app plus deploy-drive skill, without raw MCP configuration) were installed in the owner's ChatGPT account. Setup loaded the skill. The garden-plan acceptance chat visibly rendered the flight deck, accepted an edited mission, opened fullscreen, sent Deploy into the conversation, returned completed guided-pass contributions, and accepted a branch challenge that produced a revised report.
+
+A separate Work-mode acceptance task created a writer and a skeptic for a 100-word community invitation. ChatGPT's native Subagents panel showed both workers as Done and exposed their distinct final responses. The lead reconciled the critique and returned a complete native-agent flight report. This establishes native delegation on the tested account/surface; it does not establish eligibility for every ChatGPT account.
+
+The account's pre-existing “Enforce CSP for custom apps” setting was off and was left unchanged. The self-contained bundle also passed its separate strict-CSP preview checks; this session did not qualify ChatGPT's production CSP enforcement. Public-directory publisher verification, service terms, review recording, and approval remain deferred at the owner's request. Personal identifiers, conversation links, and screenshots are retained only in local output artifacts, not in this public record.

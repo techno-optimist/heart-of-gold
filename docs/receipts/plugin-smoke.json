@@ -1,40 +1,59 @@
 {
-  "checkedAt": "2026-11-05T19:45:06.330Z",
+  "checkedAt": "2026-11-05T19:56:03.600Z",
   "endpoint": "https://projectforty2.ai/heartofgold/mcp",
-  "appCommit": "a9df01e2e8fd02dccf29104403959346bd8230aa",
-  "verification": "Live HTTP/MCP protocol and synthetic fixture checks; not real ChatGPT plugin execution.",
-  "serverInfo": {
-    "name": "heart-of-gold",
-    "version": "0.1.0"
-  },
-  "protocolVersion": "2025-11-25",
+  "appCommit": "b217dd54f0845a27488b1154ec50ab663adf780a",
+  "verification": "Latest UI resource integrity and static routes rechecked. Earlier protocol and session-isolation results retain their original commit and timestamp below.",
   "bundle": {
-    "sha256": "72cfdc64c96e7083d0c5add53dd7419d13a90014931485756aaff3b8d13fa762",
-    "bytes": 704118,
+    "sha256": "46f1376d39f118d600a0ca95cd024eabb3ff5de891198484fba62145efd991d6",
+    "bytes": 705086,
     "exactDeployedResourceMatch": true
   },
   "checks": {
-    "initialize": true,
-    "preselectedGuidedModeCanonicalizedToUnstartedBuilder": true,
     "resourceMatchesReviewedBundle": true,
     "resourceHasNoNetworkDomains": true,
-    "noAuthToolsListed": true,
-    "buildCrewProducesUnstartedPlan": true,
-    "revisedUnstartedCrewRemainsEditable": true,
-    "syntheticCompletedReportAccepted": true,
-    "nativeActivityWithoutWorkerIdsRejected": true,
-    "privacyPage": true,
     "previewMatchesReviewedBundle": true,
     "previewUsesHashedScriptsAndNoNetwork": true,
-    "chatgptOriginPreflight": true,
-    "foreignOriginRejected": true,
-    "freshWebsiteVisitorsIsolated": true,
-    "returningVisitorKeepsOwnSession": true,
-    "pluginDidNotCreateWebsiteRunHistory": true
+    "privacyPage": true,
+    "resourceAndStaticRoutesSetNoSessionCookies": true
   },
-  "paidProviderInference": "NOT_RUN",
-  "nativeAgentExecution": "NOT_RUN",
+  "paidProviderInference": "NOT_RUN_BY_THIS_SCRIPT",
+  "nativeAgentExecution": "NOT_RUN_BY_THIS_SCRIPT",
   "realChatGPTHostExecution": "NOT_RUN_BY_THIS_SCRIPT",
+  "hostObservationNote": "The release lead maintains separate observations of real ChatGPT UI workflows and native subagents. This scripted receipt proves only its listed protocol and static-route checks.",
   "publicationScope": "Personal installation. Public directory review is deferred and was not verified by this script.",
+  "previousTransportVerification": {
+    "checkedAt": "2026-11-05T19:45:06.330Z",
+    "appCommit": "a9df01e2e8fd02dccf29104403959346bd8230aa",
+    "verification": "Full protocol, synthetic fixture, and website session-isolation checks ran at this earlier revision.",
+    "serverInfo": {
+      "name": "heart-of-gold",
+      "version": "0.1.0"
+    },
+    "protocolVersion": "2025-11-25",
+    "bundle": {
+      "sha256": "72cfdc64c96e7083d0c5add53dd7419d13a90014931485756aaff3b8d13fa762",
+      "bytes": 704118,
+      "exactDeployedResourceMatch": true
+    },
+    "checks": {
+      "initialize": true,
+      "preselectedGuidedModeCanonicalizedToUnstartedBuilder": true,
+      "resourceMatchesReviewedBundle": true,
+      "resourceHasNoNetworkDomains": true,
+      "noAuthToolsListed": true,
+      "buildCrewProducesUnstartedPlan": true,
+      "revisedUnstartedCrewRemainsEditable": true,
+      "syntheticCompletedReportAccepted": true,
+      "nativeActivityWithoutWorkerIdsRejected": true,
+      "privacyPage": true,
+      "previewMatchesReviewedBundle": true,
+      "previewUsesHashedScriptsAndNoNetwork": true,
+      "chatgptOriginPreflight": true,
+      "foreignOriginRejected": true,
+      "freshWebsiteVisitorsIsolated": true,
+      "returningVisitorKeepsOwnSession": true,
+      "pluginDidNotCreateWebsiteRunHistory": true
+    }
+  },
   "privacy": "No provider keys, account identifiers, personal paths, cookies, or session tokens are included."
 }

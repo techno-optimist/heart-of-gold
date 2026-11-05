@@ -62,6 +62,25 @@ Review the native connection warning, create the plugin, install it, and use a n
 
 A custom MCP connection tests the tools and UI; it does **not** automatically install this repository's skill. To preview the combined package in ChatGPT, follow the official packaging workflow: register the custom server, obtain its real `plugin_asdk_app...` ID, and have the platform's Plugin Creator wire that registered connection into a local package. Never invent or commit another account's registered connection ID. [Combined skill and MCP testing](https://developers.openai.com/plugins/build/plugins#create-and-test-a-plugin-locally-with-an-mcp-server).
 
+### Install a personal package in ChatGPT
+
+The personal cloud route was demonstrated on 5 November 2026: the raw MCP package uploaded successfully but showed **Open in desktop app**; a private variant referencing the registered connection then showed **Install plugin**, installed, and loaded `deploy-drive` in its setup Work chat. That establishes installation and skill loading on the tested account, not universal account eligibility or completed task execution in ChatGPT.
+
+Official guidance explains that imported MCP declarations can produce a Desktop-only label even for HTTPS servers. Adding an app reference while keeping that declaration does not by itself remove the label. [Desktop-only imports and registered-app mappings](https://learn.chatgpt.com/docs/enterprise/plugin-management#desktop-only-plugins).
+
+1. Register and connect the custom MCP server above. Obtain its actual app ID from the resulting connection. A URL ID `plugin_asdk_app_…` maps to app ID `asdk_app_…`; the uploaded package's separate `plugin_…` ID is not an app ID.
+2. Build an account-specific archive from the repository root, replacing the example argument with your registered app ID:
+
+   ```sh
+   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.1.1
+   ```
+
+3. In ChatGPT **Plugins → + → Upload archive**, upload this private ZIP, or use the existing personal plugin's update action. Inspect the imported details and select **Install plugin** when available. Start setup or a new Work chat and verify the skill and connected tools. Account/workspace policies still apply.
+
+The script accepts `asdk_app_`, `connector_`, and `templated_apps_` IDs, and normalizes the documented `plugin_asdk_app_` URL form. It cannot establish ownership or connection access. Its optional third argument changes only the private archive's version; without it, the source version is retained. It reuses public-package validation, removes `mcp.json`, adds `.app.json`, and points `extensions.com.openai.apps` to that mapping. No public source file or version is changed. The output must stay outside the public repository, and the printed receipt omits the account-specific ID.
+
+Keep this ZIP private. Registered-app mappings do not grant others access, and public directory submission currently rejects packages containing `apps` / `.app.json`. The public release keeps its HTTPS MCP definition and goes through the separate developer registration/review process. [App-ID rules](https://learn.chatgpt.com/docs/enterprise/plugin-management#reference-an-existing-app-with-appjson), [public submission rules](https://developers.openai.com/plugins/deploy/submission#automatically-provide-submission-and-review-information).
+
 The public directory is the intended simpler installation path after review. There is no fabricated directory install URL in this repository. Publishing this repository on GitHub is not directory publication.
 
 ## What leaves the chat
