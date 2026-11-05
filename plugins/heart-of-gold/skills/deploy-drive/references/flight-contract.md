@@ -79,6 +79,10 @@ New or changed file attribution and every check must reference a member with rep
 
 ### Component checkpoints
 
+For a new small web app without a requested stack, use an actual HTML entrypoint, local CSS, and classic JavaScript scripts (`defer` when needed). The isolated preview does not bundle ES-module imports or fetch HTML fragments/external dependencies. Keep the artifact within the source limits above. Preserve the user's requested or existing stack; use real host build tools for a compatible artifact when feasible, otherwise retain useful source and state the preview limit. Define shared state/events interfaces so components work without unfinished siblings.
+
+Send the new runnable shell, or an existing project's actual baseline, after reporting lead-working status and before dispatching component work or waiting for worker outputs. Initial component mappings describe only actual included work; add worker mappings when their real contributions arrive. A shell update is still a full-file transaction and requires `checks`, which may be `[]`.
+
 Each component is `{ id, label, memberId, workerId?, filePaths }`. Use a stable ID matching `[A-Za-z][A-Za-z0-9_-]{0,63}`, a nonempty label of at most 120 characters, and 1–24 unique paths included in the current file set. It declares the component's reported contributor and supporting files, not every edit made to a shared file. Mark its actual rendered region with `data-hog-component="component-id"`. Do not send arbitrary selectors, coordinates, or component status fields. The preview measures actual matching elements when possible; missing anchors do not justify invented cursor positions.
 
 New or changed component source/author mappings require a current member with reported work and the matching native worker ID where applicable. An exactly retained ID, author, file-path mapping, and mapped source digest may preserve a departed member's authorship; changing only its label does not require false reattribution. Omitted mappings are preserved, not silently pruned: removing a referenced file requires explicitly updating or clearing the affected mappings in the same request.

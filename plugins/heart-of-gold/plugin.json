@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "heart-of-gold",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Watch a small crew build real components in one live ProjectForty2 flight deck.",
   "author": {
     "name": "ProjectForty2",
@@ -35,7 +35,7 @@
         "supportURL": "https://github.com/techno-optimist/heart-of-gold/issues",
         "privacyPolicyURL": "https://projectforty2.ai/heartofgold/plugin-privacy.html",
         "defaultPrompt": [
-          "Build a small useful web app with Heart of Gold. Let each worker own a visual component, publish the real shell first, and show each usable component arriving in this one flight deck while the crew works. Include a reviewer and test the result.",
+          "Build a small useful web app with Heart of Gold. Unless I request or already use another stack, use self-contained HTML/CSS/JavaScript that works in the deck. Publish the real shell before dispatching component workers, then show each usable component as it arrives. Include a reviewer and test the result.",
           "Bring in the debate team. Compare two approaches and give me a recommendation with the strongest objection.",
           "Build a crew for this task. Show the workstreams first; wait before doing the work."
         ],
@@ -64,7 +64,7 @@
               "description": "Build visibly through genuine component checkpoints while other workers remain active.",
               "prompt": "Heart of Gold: build a small task-board website using HTML, CSS and JavaScript. Assign task entry, task list, and filters to distinct workers when available. Publish a real runnable shell first, then immediately integrate each actual component checkpoint while other workers continue. Use stable data-hog-component anchors, component ownership and actual changedComponentIds in one flight deck. Test add, complete, filter and remove. Do not deploy publicly.",
               "tools_triggered": "build_crew, show_flight, update_project",
-              "expected_behavior": "Open one card. Publish actual shell files before substantive components exist; use real native worker IDs when available, otherwise guided passes. Publish each genuinely delivered component with matching DOM anchor, mapped files, attribution and changedComponentIds while other work continues. Never hide prefinished code for staged reveals, invent progress, or replay a fabricated construction history. Preserve the same flight. Checks describe actual execution or not_run. A late viewer sees the current state without replaying historical building."
+              "expected_behavior": "Open one card. Publish actual shell files before dispatching or waiting for component workers; use local classic scripts/styles for this new small app, with components that mount independently; use real native worker IDs when available, otherwise guided passes. Publish each genuinely delivered component with matching DOM anchor, mapped files, attribution and changedComponentIds while other work continues. Never hide prefinished code for staged reveals, invent progress, or replay a fabricated construction history. Preserve the same flight. Checks describe actual execution or not_run. A late viewer sees the current state without replaying historical building."
             },
             {
               "description": "Revise a plan before launch without losing the user's constraints.",
@@ -104,7 +104,7 @@
         "commerce_description": "This plugin does not sell products, process payments, or invoke external AI providers. Host account usage applies."
       },
       "publication": {
-        "release_notes": "Adds a project-first component canvas. Named workers publish genuine component checkpoints; bounded source-linked update receipts drive contributor cursors and construction accents at real DOM anchors. Source-identical metadata and check updates retain the active preview. No fabricated intermediate source, native mouse tracking, server-side execution or automatic public deployment."
+        "release_notes": "Refines the crew workflow for ordinary web-app requests: default new small apps to a preview-compatible HTML/CSS/classic-JavaScript scaffold, publish the actual shell before dispatching or waiting for workers, and define shared interfaces for independent component checkpoints. Existing and explicitly requested stacks are preserved. Uses the existing 0.6.0 component protocol and v8 deck; no backend or UI change."
       }
     }
   }

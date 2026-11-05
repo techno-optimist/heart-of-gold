@@ -58,14 +58,14 @@ function receiveSnapshot(input, force = false, initial = false) {
         state.selectedId = typeof cached.selectedId === 'string' ? cached.selectedId : null;
         $('deliverable-section').open = cached.resultOpen === true;
         if (cached.revision > state.flight.revision) {
-          state.cached = true; acceptSnapshot(normalizeSnapshot(cached.snapshot), true);
+          state.cached = true; acceptSnapshot(normalizeSnapshot(cached.snapshot), true, true);
           const received = new Date(cached.receivedAt); if (Number.isFinite(received.getTime())) state.receivedAt = received;
           $('full-mission').open = cached.missionOpen === true; render(); return;
         }
       }
     } catch { /* Ignore an invalid or incompatible display cache. */ }
   }
-  state.cached = false; acceptSnapshot(snapshot, force); render(); persistView();
+  state.cached = false; acceptSnapshot(snapshot, force, true); render(); persistView();
 }
 function resultError(result) {
   const detail = result?._meta?.flightError;
@@ -82,6 +82,38 @@ function rememberFlight(result) {
   const readToken = result?._meta?.flight?.readToken;
   state.flight = { ...state.flight, id: flight.id, revision: flight.revision, expiresAt: flight.expiresAt, ...(typeof flight.writeToken === 'string' ? { writeToken: flight.writeToken } : {}), ...(typeof readToken === 'string' ? { readToken } : {}) };
   return true;
+}
+function safeSyncDiagnostic(error, phase) {
+  const prefix = phase === 'request' ? 'request' : 'apply';
+  if (Number.isInteger(error?.code) && Math.abs(error.code) <= 2147483647) return `${prefix}:${error.code}`;
+  const fixedCodes = { REQUEST_TIMEOUT: 'timeout', FLIGHT_UNAVAILABLE: 'unavailable', FLIGHT_CONFLICT: 'conflict', FLIGHT_BUSY: 'busy' };
+  if (Object.hasOwn(fixedCodes, error?.code)) return `${prefix}:${fixedCodes[error.code]}`;
+  const names = new Set(['Error', 'TypeError', 'RangeError', 'SyntaxError', 'AbortError', 'DataCloneError', 'SecurityError', 'McpError']);
+  return `${prefix}:${names.has(error?.name) ? error.name : 'Error'}`;
+}
+function recordReadFailure(error, phase) {
+  state.syncDiagnostic = safeSyncDiagnostic(error, phase);
+  $('deck').dataset.syncDiagnostic = state.syncDiagnostic;
+  state.pollFailures += 1; state.sync = 'reconnecting';
+}
+function applyReadResult(result, requestedRevision) {
+  const previousFlight = state.flight, previousSignature = state.remoteSignature;
+  try {
+    const remembered = rememberFlight(result);
+    if (remembered === false) return false;
+    if (remembered !== true || typeof result.structuredContent?.unchanged !== 'boolean') throw new TypeError('Incomplete flight read response.');
+    if (result.structuredContent.unchanged && state.flight.revision !== requestedRevision) throw new TypeError('Unchanged response does not match the requested revision.');
+    state.sync = 'watching';
+    if (result.structuredContent.unchanged) { state.unchangedReads += 1; if (state.cached && state.authoritativeSnapshot) receiveSnapshot(state.authoritativeSnapshot, true); }
+    else { state.unchangedReads = 0; if (state.flight.revision > requestedRevision) state.awaitingUpdate = false; receiveSnapshot(result.structuredContent); }
+    refreshSyncLabel();
+    state.pollFailures = 0; state.liveReadBaseline = true;
+    return true;
+  } catch (error) {
+    // Keep requesting the unacknowledged revision after a display/apply failure.
+    state.flight = previousFlight; state.remoteSignature = previousSignature;
+    throw error;
+  }
 }
 function describeMilestone(previous, next) {
   if (next.project && previous?.project?.revision !== next.project.revision) return `Project revision ${next.project.revision} received · ${next.project.files.length} real files.`;
@@ -111,7 +143,7 @@ function refreshSyncLabel() {
   const age = seconds == null ? 'not yet received' : seconds < 5 ? 'just now' : seconds < 60 ? `${seconds}s ago` : seconds < 3600 ? `${Math.floor(seconds / 60)}m ago` : `${Math.floor(seconds / 3600)}h ago`;
   const receipt = state.expired || (!isPreview && !state.connected) ? 'Updates unavailable' : state.cached ? 'Saved report' : state.sync === 'reconnecting' ? 'Refresh interrupted' : `Last report · ${age}`;
   writeText('receipt-age', receipt);
-  $('receipt-age').title = received ? `Received ${received.toLocaleString()}. Cursor motion is illustrative; status comes from host reports.` : 'Waiting for a report from the chat host.';
+  $('receipt-age').title = (received ? `Received ${received.toLocaleString()}. Cursor motion is illustrative; status comes from host reports.` : 'Waiting for a report from the chat host.') + (state.syncDiagnostic ? ` Last refresh diagnostic: ${state.syncDiagnostic}.` : '');
   let text = state.dirty ? 'Draft edited' : `Last report ${time}`;
   if (isPreview) text = 'Browser preview';
   else if (state.expired || !state.connected) text = 'Updates unavailable · last report retained';
@@ -136,21 +168,26 @@ async function pollFlight(manual = false) {
   if (!state.flight?.readToken || state.expired || !state.connected || state.polling || state.tornDown || document.hidden) return;
   if (Date.now() >= Date.parse(state.flight.expiresAt)) { state.expired = true; state.sync = 'unavailable'; stopPolling(); render(); return; }
   if (state.busy) { schedulePoll(3000); return; }
-  state.polling = true; refreshSyncLabel();
+  state.polling = true;
+  let phase = 'apply', failureRecorded = false;
   try {
+    refreshSyncLabel(); phase = 'request';
     const revision = state.flight.revision;
     const result = await app.callServerTool({ name: 'read_flight', arguments: { flightId: state.flight.id, readToken: state.flight.readToken, afterRevision: revision } }, { timeout: 10000 });
     if (state.tornDown) return;
     if (result?.isError) throw resultError(result);
-    if (rememberFlight(result) === false) return;
-    state.pollFailures = 0; state.sync = 'watching';
-    if (result.structuredContent?.unchanged) { state.unchangedReads += 1; if (state.cached && state.authoritativeSnapshot) receiveSnapshot(state.authoritativeSnapshot, true); }
-    else { state.unchangedReads = 0; if (state.flight.revision > revision) state.awaitingUpdate = false; receiveSnapshot(result.structuredContent); }
-    state.liveReadBaseline = true;
+    phase = 'apply'; applyReadResult(result, revision);
   } catch (error) {
-    if (error.code === 'FLIGHT_UNAVAILABLE') { state.expired = true; state.sync = 'unavailable'; notify('This temporary flight has expired or is unavailable. The last report remains here; no completion has been inferred.', 'error'); }
-    else { state.pollFailures += 1; state.sync = 'reconnecting'; if (manual) notify('The flight could not refresh. Your draft and last report are still here.', 'error'); }
-  } finally { state.polling = false; if (state.expired) render(); else refreshSyncLabel(); schedulePoll(); }
+    recordReadFailure(error, phase);
+    failureRecorded = true;
+    if (error?.code === 'FLIGHT_UNAVAILABLE') { state.expired = true; state.sync = 'unavailable'; notify('This temporary flight has expired or is unavailable. The last report remains here; no completion has been inferred.', 'error'); }
+    else if (manual) notify('The flight could not refresh. Your draft and last report are still here.', 'error');
+  } finally {
+    state.polling = false;
+    try { if (state.expired) render(); else refreshSyncLabel(); }
+    catch (error) { if (!failureRecorded) recordReadFailure(error, 'apply'); }
+    finally { schedulePoll(); }
+  }
 }
 
 document.addEventListener('visibilitychange', () => { if (document.hidden) stopPolling(); else schedulePoll(0); refreshSyncLabel(); });
@@ -233,7 +270,7 @@ function isBuilder() { return state.snapshot?.view === 'builder'; }
 function depthOf(member, members = state.snapshot.members) { let depth = 0; let current = member; while (current.parentId != null) { current = members.find((m) => m.id === current.parentId); if (!current) break; depth += 1; } return depth; }
 function descendantIds(id, members = state.snapshot.members) { const ids = new Set([id]); let changed = true; while (changed) { changed = false; for (const member of members) if (ids.has(member.parentId) && !ids.has(member.id)) { ids.add(member.id); changed = true; } } return ids; }
 
-function acceptSnapshot(input, force = false) {
+function acceptSnapshot(input, force = false, propagateErrors = false) {
   try {
     const snapshot = normalizeSnapshot(input);
     const signature = JSON.stringify(snapshot);
@@ -244,7 +281,7 @@ function acceptSnapshot(input, force = false) {
     state.snapshot = snapshot; state.receivedAt = new Date(); state.dirty = false; state.editing = false; state.missionEditing = false; state.pending = null; state.revision += 1; state.sentRevision = null;
     if (!snapshot.members.some((member) => member.id === state.selectedId)) state.selectedId = null;
     $('pending-snapshot').hidden = true; $('message-preview').hidden = true; render(); schedulePoll();
-  } catch (error) { notify(error.message, 'error'); }
+  } catch (error) { if (propagateErrors) throw error; notify(error.message, 'error'); }
 }
 
 function markDirty() { state.dirty = true; state.revision += 1; state.sentRevision = null; $('message-preview').hidden = true; notify(''); render(); }

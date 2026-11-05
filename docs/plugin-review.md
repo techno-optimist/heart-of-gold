@@ -1,10 +1,10 @@
 # Plugin review dossier
 
-Package: `heart-of-gold` `0.6.0`. Publisher label: ProjectForty2. Source: [techno-optimist/heart-of-gold](https://github.com/techno-optimist/heart-of-gold). Remote server: `https://projectforty2.ai/heartofgold/mcp`. No provider login; private flight capabilities protect temporary state. Public directory approval: **not established by this dossier**.
+Package: `heart-of-gold` `0.6.1`. Publisher label: ProjectForty2. Source: [techno-optimist/heart-of-gold](https://github.com/techno-optimist/heart-of-gold). Remote server: `https://projectforty2.ai/heartofgold/mcp`. No provider login; private flight capabilities protect temporary state. Public directory approval: **not established by this dossier**.
 
 This document separates a prepared review package from observed installation, operation, and approval. Do not turn an automated test pass into a claim that ChatGPT installation, embedded rendering, or public submission succeeded.
 
-Earlier package and account receipts establish their recorded versions only. The `0.6.0` component checkpoints and presentation need their own acceptance checks while retaining the single-card, temporary-state, and retention contracts; do not inherit acceptance from an earlier version.
+Earlier package and account receipts establish their recorded versions only. The `0.6.1` ordinary-request defaults use the existing 0.6.0 component protocol and v8 presentation; the new skill ordering and stack defaults need their own acceptance checks while retaining the single-card, temporary-state, and retention contracts; do not inherit acceptance from an earlier version.
 
 ## Product and data-flow review
 
@@ -31,7 +31,7 @@ The executable review prompts and expected behavior are maintained in `plugin.js
 
 For every positive case, require exactly one opened deck; all later updates must reuse its flight and must not attach a UI template. Run P2 in a host with delegation available as well: an explicit request for the same assistant must remain guided. Add a separate native-execution acceptance run on an eligible host: observe a real worker start in the existing card, then its actual result and the lead's synthesis. A fabricated MCP fixture validates shape, not native execution.
 
-For P3, start with a real runnable shell whose unfinished components are genuinely absent or incomplete. In the native-worker variant, capture at least two distinct workers' usable component checkpoints before all workers finish, with actual returned worker IDs and exact source hashes. For example, observe task entry arrive while the list is still being built, then observe the actual list and filters. The lead must publish on genuine arrivals rather than holding the completed app for a staged reveal. Include any material reviewer correction that actually occurs; do not manufacture one. Guided execution remains a separately labeled serial variant.
+For P3, start with a real runnable shell whose unfinished components are genuinely absent or incomplete. Publish it before dispatching or waiting for component workers. Also exercise the ordinary starter without acceptance-only technical instructions: it should choose a compatible classic-script scaffold for a new small app, while a requested/existing stack remains respected. In the native-worker variant, capture at least two distinct workers' usable component checkpoints before all workers finish, with actual returned worker IDs and exact source hashes. For example, observe task entry arrive while the list is still being built, then observe the actual list and filters. The lead must publish on genuine arrivals rather than holding the completed app for a staged reveal. Include any material reviewer correction that actually occurs; do not manufacture one. Guided execution remains a separately labeled serial variant.
 
 Confirm that each changed component maps to a real rendered anchor and changed included source; inspect the matching contributor. Repeat reads must not replay an event. If polling skips revisions or the tab is hidden, show the latest state without reconstructing imaginary intermediate code. Check missing anchors, shared-file changes, reduced motion, hover/focus, and a narrow viewport without blocking the project's actual controls. A component label or hash alone does not independently establish authorship.
 

@@ -2,7 +2,7 @@
 
 A small crew for real work. One flight deck stays in the chat while the host builds: actual source files, crew contributions, checks, and synthesis arrive in that same card. ProjectForty2's MCP service holds the latest supplied state; the host's tools perform the work.
 
-This is the `0.6.0` plugin workflow, separate from the website's release numbering. It adds explicit component ownership and source-bound checkpoint receipts to the existing one-card protocol. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
+This is the `0.6.1` plugin workflow, separate from the website's release numbering. It refines ordinary web-app defaults and shell-first ordering, using the existing 0.6.0 component protocol and v8 deck. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
 
 ## What you get
 
@@ -47,7 +47,7 @@ Temporary state can expire or disappear on a server restart. The deck should say
 
 The host creates and edits the artifact with its available tools. The lead reports real working member status, then sends the complete current selection of files through `update_project` at useful milestones. Each file names its contributing crew member; native child attribution must match the worker ID already reported by the host. An actual source revision may be supplied when known. A file list is not a workspace connection: the plugin cannot browse the user's repository or discover files itself.
 
-The workflow starts with a real runnable shell. Builders own small regions and behaviors, such as task entry, task list, or filters, with agreed interfaces and stable `data-hog-component` anchors. They return an early usable checkpoint before finishing their whole assignment. The lead integrates and publishes each actual arrival while other work continues, then reports real review corrections. If the host only returns final worker results, smaller tasks provide the checkpoints. Guided passes do the same work serially and stay labeled as one assistant. A finished app must never be hidden and gradually revealed as a fictional live build.
+For a new small web app without a requested stack, the workflow defaults to self-contained HTML, local CSS, and classic JavaScript that the isolated preview can run. It publishes the real runnable shell before dispatching component workers or waiting for their results, with a shared interface that lets each component work independently. Requested or existing stacks are preserved; if their actual build cannot fit the preview, the host explains that limit and retains the useful source/deliverable. Existing projects begin from their actual baseline. Builders own small regions and behaviors, such as task entry, task list, or filters, with agreed interfaces and stable `data-hog-component` anchors. They return an early usable checkpoint before finishing their whole assignment. The lead integrates and publishes each actual arrival while other work continues, then reports real review corrections. If the host only returns final worker results, smaller tasks provide the checkpoints. Guided passes do the same work serially and stay labeled as one assistant. A finished app must never be hidden and gradually revealed as a fictional live build.
 
 The component manifest contains up to 12 IDs, labels, contributors, and included file-path mappings. The host declares changed component IDs; the service accepts events only when a declared component maps to an actually changed source hash. A component cursor or highlight can then point to its real rendered anchor. Shared-file changes still require honest attribution: a new hash is not independent proof that every mapped region changed. If several arrivals occur between reads, display the current state together instead of inventing intermediate steps. This is milestone reporting with host and polling latency, not keystroke streaming.
 
@@ -102,7 +102,7 @@ Official guidance explains that imported MCP declarations can produce a Desktop-
 2. Build an account-specific archive from the repository root, replacing the example argument with your registered app ID:
 
    ```sh
-   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.6.0
+   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.6.1
    ```
 
 3. In ChatGPT **Plugins → + → Upload archive**, upload this private ZIP, or use the existing personal plugin's update action. Inspect the imported details and select **Install plugin** when available. Start setup or a new Work chat and verify the skill and connected tools. Account/workspace policies still apply.
@@ -141,7 +141,7 @@ The portable package uses the Agent Plugins `1.0.0` schemas, with OpenAI listing
 Create a release archive from the repository root with Node 22+ and Python 3 (standard library only):
 
 ```sh
-node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.6.0.zip
+node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.6.1.zip
 ```
 
 The ZIP has `plugin.json` and `mcp.json` directly at its root, alongside `LICENSE`, `skills/`, and `assets/`. It excludes the website, UI source/build output, marketplace catalog, dependencies, and local data. The packager rejects symlinks, unreviewed file types, missing referenced assets, and common credential/private-path patterns; it verifies the archive and prints its SHA-256. Identical source files produce identical ZIP bytes. These checks do not replace source review or the platform's own validation. Creating the ZIP does not install, upload, submit, or approve it.
