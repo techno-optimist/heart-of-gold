@@ -3,6 +3,8 @@
  * Movement is presence choreography, never a claim that a tool is clicking,
  * drawing, browsing, or producing output. Runtime nodes are the only live crew.
  */
+import { createWorkRoute, sampleWorkRoute, motionAllowed, observedCompletion, mobileCrewSlots } from './swarm-motion.mjs';
+
 const PALETTE = ['#e0a43a', '#a3c4ba', '#bbaed1', '#d6aa8c', '#b6c8d8', '#cebc88', '#c7a3ae'];
 const REHEARSAL = [
   { id: 'preview-lead', parentId: null, name: 'Deep Thought', role: 'Lead', depth: 0 },
@@ -56,9 +58,10 @@ export function createSwarmField({ stage, canvas, nodesLayer, onSelect = () => {
       canvas.style.width = `${width}px`; canvas.style.height = `${height}px`;
     }
     layout();
-    // An expanding notice/dock should not cover a cursor while it eases upward.
+    // Resizing or an expanding dock must not cover a cursor during its glide.
     for (const record of records.values()) {
-      if (record.y > bounds.bottom) { record.y = bounds.bottom; record.trail.length = 0; pose(record); }
+      const x = clamp(record.x, bounds.left, bounds.right), y = clamp(record.y, bounds.top, bounds.bottom);
+      if (record.x !== x || record.y !== y) { record.x = x; record.y = y; record.trail.length = 0; pose(record); }
     }
     if (staticMode()) settle();
     draw(); wake();
@@ -104,34 +107,12 @@ export function createSwarmField({ stage, canvas, nodesLayer, onSelect = () => {
         record.ty = bounds.top + spanY * point[1];
       });
     } else if (mobile) {
-      const root = data.find(node => !node.parentId || !records.has(node.parentId));
-      const firstLevel = root ? data.filter(node => node.parentId === root.id) : [];
-      const laneOf = node => {
-        const visited = new Set(); let cursor = node;
-        while (cursor && !visited.has(cursor.id)) {
-          visited.add(cursor.id);
-          const index = firstLevel.findIndex(parent => parent.id === cursor.id);
-          if (index >= 0) return index % 2;
-          cursor = records.get(cursor.parentId)?.data;
-        }
-        return 0;
-      };
-      const firstRows = new Map();
-      const lastRow = Math.max(3, ...firstLevel.map(parent => 1 + data.filter(node => node.parentId === parent.id).length));
+      const { slots, rows } = mobileCrewSlots(data);
       ordered.forEach(record => {
-        const node = record.data;
-        const isRoot = !node.parentId || !records.has(node.parentId);
-        let row = 0;
-        if (!isRoot) {
-          if (firstLevel.some(parent => parent.id === node.id)) row = 1;
-          else {
-            const lane = laneOf(node);
-            const next = (firstRows.get(lane) || 1) + 1; firstRows.set(lane, next); row = next;
-          }
-        }
-        record.tx = isRoot ? bounds.left + spanX * .48 : bounds.left + spanX * (laneOf(node) ? .94 : .08);
-        if (row > 1 && !preview) record.tx += laneOf(node) ? -10 : 10;
-        record.ty = bounds.top + spanY * Math.min(row / lastRow, 1);
+        const { lane, row } = slots.get(record.data.id);
+        record.tx = row === 0 ? bounds.left + spanX * .48 : bounds.left + spanX * (lane ? .94 : .08);
+        if (record.data.depth > 1 && !preview) record.tx += lane ? -10 : 10;
+        record.ty = bounds.top + spanY * row / rows;
       });
     } else {
       const roots = data.filter(node => !node.parentId || !records.has(node.parentId));
@@ -170,6 +151,8 @@ export function createSwarmField({ stage, canvas, nodesLayer, onSelect = () => {
       record.ty = clamp(record.ty, bounds.top, bounds.bottom);
       record.button.style.setProperty('--label-max', `${labelWidth}px`);
       record.role.style.display = preview && width < 1000 ? 'none' : ''; // The field's rehearsal disclosure remains visible.
+      record.route = createWorkRoute({ bounds, home: { x: record.tx, y: record.ty }, seed: record.seed, index: record.index });
+      if (record.rest) { record.rest.x = clamp(record.rest.x, bounds.left, bounds.right); record.rest.y = clamp(record.rest.y, bounds.top, bounds.bottom); }
     });
     rehearsalStations = preview ? ordered.map(record => ({ x: record.tx, y: record.ty })) : [];
     for (const record of [...ordered].sort((a, b) => (a.data.depth || 0) - (b.data.depth || 0))) {
@@ -190,13 +173,16 @@ export function createSwarmField({ stage, canvas, nodesLayer, onSelect = () => {
     const name = document.createElement('span'); name.className = 'agent-name';
     const role = document.createElement('span'); role.className = 'agent-role';
     label.append(name, role); button.append(pointer, label); nodesLayer.append(button);
-    const record = { data: node, button, name, role, color: PALETTE[index % PALETTE.length], x: width / 2, y: height / 2, tx: 0, ty: 0, opacity: 0, fresh: true, trail: [], seed: seed(node.id) };
+    const record = { data: node, button, pointer, name, role, color: PALETTE[index % PALETTE.length], x: width / 2, y: height / 2, tx: 0, ty: 0, opacity: 0, fresh: true, trail: [], seed: seed(node.id), motionTime: 0, trailAt: 0, angle: 0 };
+    pointer.style.transformOrigin = '50% 50%';
     button.style.setProperty('--agent-color', record.color);
     button.addEventListener('click', () => { if (!destroyed) onSelect(preview ? null : record.data.id); });
     button.addEventListener('focus', () => { record.focused = true; draw(); });
     button.addEventListener('blur', () => { record.focused = false; draw(); wake(); });
-    button.addEventListener('pointerenter', () => { record.hovered = true; });
+    button.addEventListener('pointerenter', event => { record.hovered = event.pointerType !== 'touch'; });
     button.addEventListener('pointerleave', () => { record.hovered = false; wake(); });
+    button.addEventListener('pointerdown', event => { record.pressed = true; try { button.setPointerCapture(event.pointerId); } catch { /* Capture is optional. */ } });
+    for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(event, () => { record.pressed = false; wake(); });
     return record;
   }
 
@@ -215,7 +201,15 @@ export function createSwarmField({ stage, canvas, nodesLayer, onSelect = () => {
     for (const [id, record] of records) if (!ids.has(id)) { record.button.remove(); records.delete(id); }
     data.forEach((node, index) => {
       let record = records.get(node.id);
+      const previousStatus = record?.data.status;
       if (!record) { record = makeRecord(node, index); records.set(node.id, record); }
+      if (previousStatus !== node.status) {
+        if (node.status === 'running') { record.motionTime = -(index * 220 + record.seed * 400); record.rest = null; }
+        else if (previousStatus === 'running' && node.status === 'waiting') record.rest = { x: record.x, y: record.y };
+        else record.rest = null;
+        record.workSample = null;
+        if (!preview && !staticMode() && node.parentId && observedCompletion(previousStatus, node.status)) record.handoffAt = elapsed;
+      }
       record.data = node; record.index = index;
       record.name.textContent = node.name || 'Crew member';
       record.role.textContent = preview ? node.role || 'Crew' : `${node.role || 'Crew'} · ${STATUS[node.status] || node.status || 'Queued'}`;
@@ -237,7 +231,7 @@ export function createSwarmField({ stage, canvas, nodesLayer, onSelect = () => {
     draw(); wake();
   }
 
-  function microPosition(record) {
+  function workPosition(record) {
     if (staticMode()) return [0, 0];
     if (preview && rehearsalStations.length) {
       // A collective drafting rehearsal: travel between distinct work stations,
@@ -249,21 +243,20 @@ export function createSwarmField({ stage, canvas, nodesLayer, onSelect = () => {
       const b = rehearsalStations[(record.index + (turn + 1) * 2) % rehearsalStations.length];
       return [a.x + (b.x - a.x) * progress - record.tx, a.y + (b.y - a.y) * progress - record.ty];
     }
-    if (record.data.status !== 'running') return [0, 0];
-    // Real work gets only a small presence gesture. It does not trace tool use.
-    const points = [[0, 0], [15, -7], [29, -7], [29, 9], [9, 9], [9, 0], [0, 0], [0, 0]];
-    const period = 5200 + record.seed * 1600;
-    const cycle = ((elapsed / period + record.seed) % 1) * (points.length - 1);
-    const index = Math.floor(cycle), blend = smooth(cycle - index);
-    const a = points[index], b = points[index + 1];
-    return [(a[0] + (b[0] - a[0]) * blend) * .65, (a[1] + (b[1] - a[1]) * blend) * .65];
+    if (record.data.status === 'waiting' && record.rest) return [record.rest.x - record.tx, record.rest.y - record.ty];
+    if (record.data.status !== 'running' || !record.route) return [0, 0];
+    // These broad journeys visualize continuing reported work. They are not
+    // reconstructed mouse coordinates, tool actions, or generated artifacts.
+    record.workSample = sampleWorkRoute(record.route, Math.max(0, record.motionTime));
+    return [record.workSample.x - record.tx, record.workSample.y - record.ty];
   }
   function pose(record) {
     record.button.style.transform = `translate3d(${record.x.toFixed(2)}px,${record.y.toFixed(2)}px,0)`;
     record.button.style.opacity = String(record.opacity);
+    record.pointer.style.transform = `rotate(${record.angle.toFixed(1)}deg) scale(${record.pressed ? .9 : 1})`;
   }
   function settle() {
-    for (const record of records.values()) { record.x = record.tx; record.y = record.ty; record.opacity = 1; record.trail.length = 0; pose(record); }
+    for (const record of records.values()) { record.x = record.tx; record.y = record.ty; record.opacity = 1; record.angle = 0; record.trail.length = 0; record.workSample = null; pose(record); }
   }
   function draw() {
     if (!ctx || destroyed) return;
@@ -300,20 +293,53 @@ export function createSwarmField({ stage, canvas, nodesLayer, onSelect = () => {
       const parent = records.get(record.data.parentId);
       if (!parent) continue;
       ctx.beginPath(); ctx.lineWidth = 1;
-      ctx.strokeStyle = record.data.status === 'completed' ? 'rgba(174,153,100,.30)' : preview ? 'rgba(178,171,147,.16)' : 'rgba(182,177,158,.27)';
+      const emphasized = selectedNode === record.data.id || selectedNode === parent.data.id;
+      ctx.strokeStyle = emphasized ? 'rgba(194,167,95,.36)' : preview ? 'rgba(178,171,147,.12)' : 'rgba(182,177,158,.13)';
       const startX = parent.x + 4, startY = parent.y + 20, endX = record.x + 4, endY = record.y - 8;
       const middle = startY + (endY - startY) * .52;
       ctx.moveTo(startX, startY); ctx.bezierCurveTo(startX, middle, endX, middle, endX, endY); ctx.stroke();
+      if (record.handoffAt !== undefined && !staticMode()) {
+        const progress = (elapsed - record.handoffAt) / 1800;
+        if (progress < 1) {
+          const t = 1 - smooth(clamp(progress, 0, 1)), s = 1 - t;
+          const x = s * s * s * startX + 3 * s * s * t * startX + 3 * s * t * t * endX + t * t * t * endX;
+          const y = s * s * s * startY + 3 * s * s * t * middle + 3 * s * t * t * middle + t * t * t * endY;
+          ctx.fillStyle = record.color; ctx.globalAlpha = Math.sin(progress * Math.PI) * .8;
+          ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+        }
+      }
     }
     for (const record of records.values()) {
       const chosen = record.focused || (!preview && selectedNode === record.data.id);
       const working = !preview && record.data.status === 'running';
+      if (working && record.workSample && !staticMode()) {
+        const sample = record.workSample;
+        const zone = sample.zone == null ? null : record.route.zones[sample.zone];
+        // A low-contrast drafting mark identifies this cursor's current visual
+        // work area. It never contains fabricated text, output, or progress.
+        if (zone && zone.width > 8 && zone.height > 8) {
+          ctx.strokeStyle = record.color; ctx.globalAlpha = .23; ctx.lineWidth = .9;
+          ctx.setLineDash([4, 5]); ctx.lineDashOffset = -(record.motionTime / 190) % 9;
+          ctx.strokeRect(zone.x, zone.y, zone.width, zone.height); ctx.setLineDash([]); ctx.lineDashOffset = 0;
+          ctx.globalAlpha = .13;
+          ctx.beginPath(); ctx.moveTo(Math.max(bounds.left, zone.x - 26), zone.y); ctx.lineTo(Math.min(bounds.right, zone.x + zone.width + 26), zone.y);
+          ctx.moveTo(zone.x, Math.max(bounds.top, zone.y - 22)); ctx.lineTo(zone.x, Math.min(bounds.bottom, zone.y + zone.height + 22)); ctx.stroke();
+          ctx.globalAlpha = .36; ctx.fillStyle = record.color;
+          for (const [x, y] of [[zone.x, zone.y], [zone.x + zone.width, zone.y], [zone.x, zone.y + zone.height], [zone.x + zone.width, zone.y + zone.height]]) ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+          ctx.globalAlpha = 1;
+        }
+        if (sample.moving && !chosen && !record.hovered && !record.pressed) {
+          ctx.globalAlpha = .12; ctx.strokeStyle = record.color; ctx.lineWidth = .8; ctx.setLineDash([2, 7]);
+          ctx.beginPath(); ctx.moveTo(sample.leg.start.x, sample.leg.start.y); ctx.quadraticCurveTo(sample.leg.control.x, sample.leg.control.y, sample.target.x, sample.target.y); ctx.stroke();
+          ctx.setLineDash([]); ctx.globalAlpha = 1;
+        }
+      }
       if (chosen || working) {
-        const boxX = (preview ? record.x : record.tx) - 11, boxY = (preview ? record.y : record.ty) - 12;
+        const boxX = record.x - 11, boxY = record.y - 12;
         const boxWidth = width <= 760 ? 147 : 180, boxHeight = 57;
         ctx.lineWidth = chosen ? 1 : .8;
-        ctx.strokeStyle = chosen ? 'rgba(194,167,95,.60)' : 'rgba(183,169,129,.25)';
-        ctx.setLineDash(chosen ? [] : [3, 5]); ctx.strokeRect(boxX, boxY, boxWidth, boxHeight); ctx.setLineDash([]);
+        ctx.strokeStyle = chosen ? 'rgba(194,167,95,.60)' : 'rgba(183,169,129,.14)';
+        if (chosen) ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
         if (chosen) {
           ctx.strokeStyle = 'rgba(194,167,95,.19)';
           ctx.beginPath(); ctx.moveTo(Math.max(16, boxX - 38), boxY); ctx.lineTo(Math.min(width - 16, boxX + boxWidth + 38), boxY);
@@ -323,8 +349,12 @@ export function createSwarmField({ stage, canvas, nodesLayer, onSelect = () => {
         }
       }
       if (!staticMode() && record.trail.length > 2) {
-        ctx.strokeStyle = record.color; ctx.lineWidth = 1; ctx.globalAlpha = .14;
-        ctx.beginPath(); record.trail.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y)); ctx.stroke(); ctx.globalAlpha = 1;
+        ctx.strokeStyle = record.color; ctx.lineWidth = 1.2;
+        for (let index = 1; index < record.trail.length; index++) {
+          ctx.globalAlpha = .32 * index / record.trail.length;
+          ctx.beginPath(); ctx.moveTo(record.trail[index - 1].x, record.trail[index - 1].y); ctx.lineTo(record.trail[index].x, record.trail[index].y); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
       }
     }
   }
@@ -335,19 +365,28 @@ export function createSwarmField({ stage, canvas, nodesLayer, onSelect = () => {
     previousTime = time; elapsed += delta;
     let unsettled = false;
     for (const record of records.values()) {
-      const [dx, dy] = microPosition(record);
-      const held = preview && (record.focused || record.hovered);
+      const held = record.focused || record.hovered || record.pressed || (!preview && selectedNode === record.data.id);
+      const travelling = motionAllowed({ preview, status: record.data.status, held });
+      if (travelling) record.motionTime += delta;
+      const [dx, dy] = workPosition(record);
       const desiredX = held ? record.x : clamp(record.tx + dx, bounds.left, bounds.right);
       const desiredY = held ? record.y : clamp(record.ty + dy, bounds.top, bounds.bottom);
       const oldX = record.x, oldY = record.y;
-      const damping = 1 - Math.exp(-delta / 155);
+      const damping = 1 - Math.exp(-delta / 100);
       record.x += (desiredX - record.x) * damping; record.y += (desiredY - record.y) * damping;
       record.opacity = Math.min(1, record.opacity + delta / 280);
       const travel = Math.hypot(record.x - oldX, record.y - oldY);
-      if (travel > .13) {
-        record.trail.push({ x: record.x + 4, y: record.y + 2 });
-        if (record.trail.length > 9) record.trail.shift();
-      } else if (record.trail.length) record.trail.shift();
+      if (travel > .13 && elapsed - record.trailAt >= 30) {
+        record.trail.push({ x: record.x + 4, y: record.y + 2, at: elapsed }); record.trailAt = elapsed;
+        if (record.trail.length > 34) record.trail.shift();
+      }
+      while (record.trail.length && elapsed - record.trail[0].at > 1050) record.trail.shift();
+      if (!held && travel > .2) {
+        const heading = Math.atan2(record.y - oldY, record.x - oldX) * 180 / Math.PI + 135;
+        const difference = ((heading - record.angle + 180) % 360 + 360) % 360 - 180;
+        record.angle += difference * Math.min(1, delta / 170);
+      } else if (!travelling && !held) record.angle *= Math.exp(-delta / 160);
+      if (record.handoffAt !== undefined) { if (elapsed - record.handoffAt < 1800) unsettled = true; else record.handoffAt = undefined; }
       if (Math.hypot(desiredX - record.x, desiredY - record.y) > .2 || record.opacity < 1 || record.trail.length) unsettled = true;
       pose(record);
     }

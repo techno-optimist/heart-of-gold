@@ -10,7 +10,7 @@ const executions = new Set(['not_started', 'guided_passes', 'native_agents']);
 const clip = (value, max = 2000) => typeof value === 'string' ? value.slice(0, max) : '';
 const label = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const isPreview = window.parent === window;
-const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.3.0' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
+const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.4.0' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
 const state = { snapshot: null, selectedId: null, dirty: false, editing: false, missionEditing: false, pending: null, receivedAt: null, connected: false, canMessage: false, busy: false, sentRevision: null, revision: 0, hostContext: {}, lastMessage: '', flight: null, remoteSignature: '', sync: 'waiting', expired: false, polling: false, pollFailures: 0, unchangedReads: 0, awaitingUpdate: false, messageUnconfirmed: false, messageRevision: null, milestone: '', evidenceKey: '', questionsKey: '', tornDown: false, cached: false, authoritativeSnapshot: null, authoritativeReceivedAt: null };
 const crewRows = new Map();
 const shipLog = [];
@@ -88,7 +88,13 @@ function describeMilestone(previous, next) {
 }
 function refreshSyncLabel() {
   if (!state.snapshot) return;
-  const time = state.receivedAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '—';
+  const received = state.cached ? state.receivedAt : state.authoritativeReceivedAt ? new Date(state.authoritativeReceivedAt) : state.receivedAt;
+  const time = received?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '—';
+  const seconds = received ? Math.max(0, Math.floor((Date.now() - received.getTime()) / 1000)) : null;
+  const age = seconds == null ? 'not yet received' : seconds < 5 ? 'just now' : seconds < 60 ? `${seconds}s ago` : seconds < 3600 ? `${Math.floor(seconds / 60)}m ago` : `${Math.floor(seconds / 3600)}h ago`;
+  const receipt = state.expired ? 'Updates unavailable' : state.cached ? 'Saved report' : state.sync === 'reconnecting' ? 'Refresh interrupted' : `Last report · ${age}`;
+  writeText('receipt-age', receipt);
+  $('receipt-age').title = received ? `Received ${received.toLocaleString()}. Cursor motion is illustrative; status comes from host reports.` : 'Waiting for a report from the chat host.';
   let text = state.dirty ? 'Draft edited' : `Last report ${time}`;
   if (isPreview) text = 'Browser preview';
   else if (state.expired) text = 'Flight unavailable · last report retained';
@@ -98,7 +104,7 @@ function refreshSyncLabel() {
   else if (state.flight && !terminal()) text = state.dirty ? 'Draft edited · board watching' : `Watching · ${time}`;
   writeText('snapshot-label', text);
   $('deck').dataset.sync = document.hidden ? 'paused' : state.sync;
-  $('deck').dataset.fresh = String(!document.hidden && !state.expired && Date.now() - (state.receivedAt?.getTime() || 0) < 30000);
+  $('deck').dataset.fresh = String(!document.hidden && !state.expired && Date.now() - (received?.getTime() || 0) < 30000);
   $('refresh-flight').hidden = !state.flight;
   $('refresh-flight').disabled = state.expired || !state.connected || state.polling || state.busy;
 }

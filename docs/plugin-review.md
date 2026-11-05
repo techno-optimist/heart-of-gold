@@ -1,10 +1,10 @@
 # Plugin review dossier
 
-Package: `heart-of-gold` `0.3.0`. Publisher label: ProjectForty2. Source: [techno-optimist/heart-of-gold](https://github.com/techno-optimist/heart-of-gold). Remote server: `https://projectforty2.ai/heartofgold/mcp`. No provider login; private flight capabilities protect temporary state. Public directory approval: **not established by this dossier**.
+Package: `heart-of-gold` `0.4.0`. Publisher label: ProjectForty2. Source: [techno-optimist/heart-of-gold](https://github.com/techno-optimist/heart-of-gold). Remote server: `https://projectforty2.ai/heartofgold/mcp`. No provider login; private flight capabilities protect temporary state. Public directory approval: **not established by this dossier**.
 
 This document separates a prepared review package from observed installation, operation, and approval. Do not turn an automated test pass into a claim that ChatGPT installation, embedded rendering, or public submission succeeded.
 
-Initial `0.1.x` packaging checks on 5 November 2026 passed the portable schemas and Skill Creator validator; its personal registered-app variant installed and loaded the skill in a setup Work chat. That is historical installation evidence. The `0.3.0` website-canvas integration needs its own interaction checks while retaining the single-card, temporary-state, and retention contracts; do not inherit acceptance from an earlier version.
+Initial `0.1.x` packaging checks on 5 November 2026 passed the portable schemas and Skill Creator validator; its personal registered-app variant installed and loaded the skill in a setup Work chat. That is historical installation evidence. The `0.4.0` motion and report-age changes need their own interaction checks while retaining the single-card, temporary-state, and retention contracts; do not inherit acceptance from an earlier version.
 
 ## Product and data-flow review
 
@@ -42,7 +42,7 @@ Record for each run: date, host/surface, account eligibility without personal id
 | Public endpoint | HTTPS initialize, tool discovery, resource read, plan, and completed synthetic receipt against the deployed URL; disclose synthetic data |
 | Local complete-package install | Marketplace discovery plus actual installed skill and tools in a new host chat; no claim from CLI help alone |
 | ChatGPT connection | Account with custom-plugin access installs the real MCP endpoint; tools and widget render in a new chat |
-| Interaction and access | Website cursor field, embedded fonts, and mission dock fit the chat frame; one card across plan/edit/start/result; selected node and expanded result survive updates; keyboard/drawer focus, narrow viewport, motion preference, hidden-tab polling, expiry, and follow-up checked in a real host |
+| Interaction and access | Shared cursor field fits the chat frame; only reported working members have continuous work motion; observed handoffs do not replay on unchanged reports; report age remains visible; hover/focus/selection holds and reduced motion work; one card, mobile/drawer controls, hidden-tab polling, expiry, and follow-up checked in a real host |
 | Workflow behavior | All eight cases above run; native delegation separately demonstrated only on an eligible host |
 | Public listing | Verified publisher/domain, complete listing, review recording, review submission and explicit approval |
 

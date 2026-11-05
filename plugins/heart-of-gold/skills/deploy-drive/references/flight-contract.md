@@ -1,6 +1,6 @@
 # Persistent flight contract
 
-`build_crew` opens one deck with resource `ui://heart-of-gold/flight-deck-v4.html`. Quiet data tools update and read its temporary server state without rendering another card. The tools do not run the crew: report only work performed by this chat or actual host workers.
+`build_crew` opens one deck with resource `ui://heart-of-gold/flight-deck-v5.html`. Quiet data tools update and read its temporary server state without rendering another card. The tools do not run the crew: report only work performed by this chat or actual host workers.
 
 ## `build_crew`
 
