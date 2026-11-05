@@ -1,6 +1,6 @@
 # A ChatGPT boarding pass
 
-Status: proposal and application draft, checked 2026-11-05. No application has been submitted, no OAuth client has been issued to this project, and no hosted ChatGPT sign-in is implemented.
+Status: the hosted sign-in and ChatGPT-plan-usage application was submitted with the project owner’s approval on 2026-11-05. OpenAI’s form confirmed receipt. Approval has not been granted, no OAuth client has been issued to this project, and hosted ChatGPT sign-in is not implemented. Contact details are deliberately excluded from this repository.
 
 **Yes: Sign in with ChatGPT can include permission to use a person's eligible ChatGPT plan for AI requests.** It does not grant their conversation history. OpenAI documents a direct flow for open-source, locally hosted applications and directs paid or remotely hosted applications to its interest form. Publishing our source does not make the shared ProjectForty2 website a local application. [Plan usage overview](https://developers.openai.com/siwc/token-sharing-open-source)
 
@@ -14,9 +14,9 @@ Status: proposal and application draft, checked 2026-11-05. No application has b
 
 Codex supports ChatGPT subscription authentication and separate API-key authentication. `codex login status` identifies the active method. The existing local integration leaves credentials with Codex; it does not upload a visitor's CLI credential files or attach the hosted site to their computer. A website-to-local companion bridge would be additional work. [Codex authentication](https://learn.chatgpt.com/docs/auth)
 
-## Application draft: HEART OF GOLD
+## Submitted application: HEART OF GOLD
 
-Use the [official interest form](https://openai.com/form/sign-in-with-chatgpt-interest/). The client-registration page currently describes a selected-partner program. This draft is ready for the project owner to review; required personal contact details are intentionally omitted from the repository. [Request a client ID](https://developers.openai.com/siwc/request-client-id)
+Use the [official interest form](https://openai.com/form/sign-in-with-chatgpt-interest/). The client-registration page currently describes a selected-partner program. The project owner authorized submission and supplied the required contact details privately; those details are intentionally omitted from the repository. [Request a client ID](https://developers.openai.com/siwc/request-client-id)
 
 | Form field | Proposed entry |
 | --- | --- |
@@ -26,11 +26,11 @@ Use the [official interest form](https://openai.com/form/sign-in-with-chatgpt-in
 | Work email, first name, last name | Owner supplies privately when submitting. |
 | Job title | Optional; owner supplies privately. |
 
-Product description draft:
+Submitted product description (also included the proposed callback listed below):
 
 > HEART OF GOLD is ProjectForty2.ai's MIT-licensed community experiment in visible, bounded agent delegation. A visitor supplies a task; a coordinator can create a small crew, show their progress, and synthesize their text reports. The hosted implementation limits each mission to seven agents, depth two, and three concurrent calls. It supplies no shell, browser, filesystem, or account tools. Source: https://github.com/techno-optimist/heart-of-gold. We want visitors to authorize eligible ChatGPT plan usage through Sign in with ChatGPT instead of entering an API key. We request guidance and approval for a remotely hosted, multiuser integration, including plan eligibility, permitted scopes, usage limits, and token lifecycle requirements.
 
-This draft makes no claim about audience size, partner status, or successful hosted plan-funded inference.
+This application makes no claim about audience size, partner status, or successful hosted plan-funded inference.
 
 ## Proposed hosted rollout
 

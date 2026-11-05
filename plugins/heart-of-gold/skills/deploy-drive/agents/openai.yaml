@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deploy the drive"
+  short_description: "Plan a small crew, challenge it, deliver the work"
+  default_prompt: "Use $deploy-drive to tackle my task with a small crew, a serious critique, and a useful final result."

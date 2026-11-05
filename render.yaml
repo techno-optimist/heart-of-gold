@@ -8,7 +8,7 @@ services:
     region: oregon
     plan: free
     branch: main
-    buildCommand: npm run check && npm test
+    buildCommand: npm ci --include=dev && npm run build:plugin && npm run check && npm test
     startCommand: node hosted-server.mjs
     healthCheckPath: /heartofgold/api/health
     autoDeployTrigger: 'off'

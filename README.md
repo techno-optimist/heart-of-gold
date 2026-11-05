@@ -10,6 +10,7 @@ Don't Panic. Bring a towel. Check the work.
 
 | Flight mode | What happens |
 | --- | --- |
+| **Chat plugin — preview** | Build an editable crew inside a compatible chat. The host does the work with real delegation when available, or clearly labeled passes by one assistant. No provider key required. |
 | **Hosted API crew — v0.2** | Connect your own OpenAI, Anthropic, or xAI API key, choose an account-listed model, and run a bounded text mission. The server coordinates real provider calls. |
 | **Local Codex** | Your installed Codex CLI runs bounded tasks in read-only sessions. The CLI manages its authentication. |
 | **Flight simulator** | A scripted demonstration exercises delegation and the interface. No model calls; output is demonstration content. |
@@ -19,7 +20,15 @@ The v0.2 hosted app is live at [projectforty2.ai/heartofgold/](https://projectfo
 
 [Source and contributions](https://github.com/techno-optimist/heart-of-gold) · [Browser simulator](https://techno-optimist.github.io/heart-of-gold/) · [Provider access guide](docs/provider-access.md)
 
-This alpha produces text deliverables. It does **not** edit repositories, merge branches, drive browser tabs, or attach to an existing chat. The map represents task activity, not a recording of agent mouse movements. A completed flight means execution completed; its conclusions still need review.
+The standalone alpha produces text deliverables. The chat plugin uses the tools and permissions actually available in its host. Neither map is a recording of agent mouse movements. A completed flight means reported work completed; its conclusions still need review.
+
+## Deploy the drive in chat
+
+The [Heart of Gold plugin](docs/plugin.md) combines an editable cursor constellation with a crew workflow. Shape assignments, branch specialists, deploy the plan into the current conversation, then inspect contributions and challenge a branch. The chat supplies the intelligence; our stateless service renders the plan and reported results. Mission and contribution summaries sent to the tools pass through ProjectForty2 temporarily. See the [plugin privacy notice](https://projectforty2.ai/heartofgold/plugin-privacy.html).
+
+[Try the visual builder](https://projectforty2.ai/heartofgold/plugin-preview/) · [Install and use](docs/plugin.md) · [Public review checklist](docs/plugin-review.md)
+
+The public ChatGPT directory listing is not approved yet. Custom-plugin access, embedded UI, and native delegation depend on the host and account. Installing this package does not unlock sub-agents or bypass plan limits.
 
 ## Hosted flight deck
 
@@ -27,7 +36,7 @@ Choose **Power the drive**, select OpenAI, Claude, or Grok, and supply your own 
 
 API access is separate from consumer chat access. A ChatGPT, Claude, or Grok subscription does not automatically supply an API key or API credit; eligible credit offers still need provider API setup. This version implements API-key access, **not** consumer-account OAuth or imported chat cookies. See [provider access](docs/provider-access.md) for official account links and current distinctions.
 
-We want **Sign in with ChatGPT** to become the preferred OpenAI boarding pass. OpenAI supports eligible plan usage through OAuth, with separate approval for remotely hosted apps. The [application draft and integration plan](docs/chatgpt-sign-in.md) are ready; access has not been granted and no OAuth button is active.
+We want **Sign in with ChatGPT** to become the preferred OpenAI boarding pass. OpenAI supports eligible plan usage through OAuth, with separate approval for remotely hosted apps. The [hosted-access application](docs/chatgpt-sign-in.md) has been submitted and receipt confirmed. Access has not been granted and no OAuth button is active.
 
 Your key travels over HTTPS to ProjectForty2 and stays in server memory for your temporary session. It is not written to browser storage, receipts, application logs, or the application's filesystem. A hosting operator can potentially access process memory; this is not an end-to-end secret vault. Prompts and results go to the chosen provider. Read [SECURITY.md](SECURITY.md) before entering sensitive material.
 
@@ -37,11 +46,13 @@ Free hosting can sleep and take time to wake. An unavailable hosted backend is s
 
 ## Run locally
 
-Requirements: Node.js 22 or newer. There are no npm runtime dependencies.
+Requirements: Node.js 22 or newer.
 
 ```sh
 git clone https://github.com/techno-optimist/heart-of-gold.git
 cd heart-of-gold
+npm ci
+npm run build:plugin
 npm start
 ```
 
@@ -93,6 +104,7 @@ The Blueprint disables automatic deploys. A restart clears all in-memory session
 Start with [CONTRIBUTING.md](CONTRIBUTING.md), [provider access](docs/provider-access.md), and the [roadmap](docs/roadmap.md). Run the checks:
 
 ```sh
+npm run build:plugin
 npm run check
 npm test
 ```

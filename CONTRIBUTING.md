@@ -7,12 +7,12 @@ We welcome small fixes, tests that expose bad assumptions, accessibility work, a
 ## Your first contribution
 
 1. Read the [README](README.md) and [architecture decision](docs/architecture.md).
-2. Run `npm start`, then try a simulator flight.
+2. Run `npm ci` and `npm run build:plugin`, then `npm start` and try a simulator flight.
 3. Run `npm test`. Tests must not require provider credentials or spend model tokens.
 4. Make one focused change. Include a meaningful regression test for runtime behavior or a short manual check for presentation changes.
 5. Open a pull request describing the problem, resulting behavior, and checks performed. Say what remains unverified.
 
-The project uses Node.js built-ins and browser JavaScript. Keep new dependencies justified. Prefer an adapter over provider-specific behavior in the coordinator or interface.
+The standalone runtime uses Node.js built-ins and browser JavaScript. The chat plugin uses the official MCP and MCP Apps SDKs, Zod for bounded contracts, and esbuild for its self-contained UI. Keep new dependencies justified. Prefer an adapter over provider-specific behavior in the coordinator or interface.
 
 ## Good first expeditions
 

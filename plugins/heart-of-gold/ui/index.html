@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Heart of Gold · Flight deck</title>
+  <!-- HOG_STYLES -->
+</head>
+<body>
+  <main class="deck" id="deck" aria-labelledby="mission-title">
+    <div class="preview-banner" id="preview-banner" hidden><strong>Browser preview</strong><span>Build a crew here. Deployment needs a connected chat.</span></div>
+    <header class="masthead">
+      <div class="context-label"><span class="gold-mark" aria-hidden="true">↗</span><span id="execution-label">Preparing the crew</span></div>
+      <span class="snapshot-label" id="snapshot-label">Waiting for the chat host</span>
+    </header>
+    <section class="mission-block">
+      <div class="eyebrow" id="eyebrow">DON’T PANIC. GIVE EVERY CURSOR A PURPOSE.</div>
+      <h1 id="mission-title">A small crew. An improbable result.</h1>
+      <p id="mission-note">Your mission and crew will arrive from the conversation.</p>
+    </section>
+    <div class="workspace">
+      <section class="constellation-wrap" aria-labelledby="constellation-title">
+        <div class="map-heading"><h2 id="constellation-title">The constellation</h2><span id="crew-count">0 / 7 roles</span></div>
+        <div class="constellation" id="constellation">
+          <div class="map-axis" aria-hidden="true"><span>INTENT</span><span>EXPLORE</span><span>GO DEEPER</span></div>
+          <svg id="connections" aria-hidden="true" focusable="false"></svg>
+          <div id="cursor-layer" class="cursor-layer" role="group" aria-label="Crew roles. Select a cursor to inspect its task."></div>
+          <p class="empty-map" id="empty-map">The drive is waiting for a mission.</p>
+        </div>
+        <div class="map-caption"><span class="path-key" aria-hidden="true"></span><span id="map-caption">A branch is a responsibility. A line shows who it reports to.</span></div>
+      </section>
+      <section class="inspector" id="inspector" aria-labelledby="inspector-title" hidden>
+        <div class="inspector-top"><span class="eyebrow" id="selected-position">CAPTAIN’S CHAIR</span><span class="status-pill" id="selected-status">Planned</span></div>
+        <h2 id="inspector-title"></h2><p class="role-line" id="selected-role"></p>
+        <div id="read-contract"><div class="contract-item"><h3>The assignment</h3><p id="selected-task"></p></div><div class="contract-item output-contract"><h3>Bring back</h3><p id="selected-output"></p></div></div>
+        <form id="role-form" class="role-form" hidden>
+          <div class="form-pair"><label>Name<input id="role-name" maxlength="80" required></label><label>Role<input id="role-role" maxlength="120" required></label></div>
+          <label>The assignment<textarea id="role-task" rows="3" maxlength="2000" required></textarea></label>
+          <label>Bring back<textarea id="role-output" rows="2" maxlength="1000" required></textarea></label>
+          <label id="parent-label">Reports to<select id="role-parent"></select></label>
+          <div class="form-actions"><button class="secondary" type="submit">Save role</button><button class="text-button" id="cancel-edit" type="button">Cancel</button></div>
+        </form>
+        <div class="role-actions" id="role-actions"><button class="text-button" id="edit-role">Edit role</button><button class="text-button branch-button" id="branch-role">+ Branch specialist</button><button class="text-button danger" id="remove-role">Remove</button></div>
+        <div class="contribution" id="contribution" hidden><h3>Contribution</h3><p id="selected-result"></p><ul id="evidence-list" aria-label="Reported evidence"></ul><p class="worker-id" id="worker-id"></p><button class="secondary" id="challenge-branch">Challenge this branch ↗</button></div>
+      </section>
+    </div>
+    <section class="mission-settings" id="mission-settings" hidden>
+      <form id="mission-form"><label>Mission<textarea id="mission-input" maxlength="6000" rows="3" required></textarea></label><label>Constraints <span class="field-help">One per line · up to 8</span><textarea id="constraints-input" rows="3" maxlength="4007"></textarea></label><div class="form-actions"><button type="submit" class="secondary">Save mission</button><button type="button" class="text-button" id="cancel-mission">Cancel</button></div></form>
+    </section>
+    <section class="deliverable" id="deliverable-section" hidden><div class="eyebrow">WHAT THE CREW BROUGHT BACK</div><h2>The result</h2><p id="report-summary"></p><pre id="deliverable-content"></pre><div id="questions-section" hidden><h3>Still worth asking</h3><ul id="open-questions"></ul></div></section>
+    <div class="pending-snapshot" id="pending-snapshot" hidden><p>A new host snapshot arrived. Your draft is still here.</p><button class="text-button" id="load-snapshot">Use new snapshot</button></div>
+    <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
+    <footer class="flight-controls">
+      <div class="control-notes"><span id="limits-note">7 roles maximum · 2 branch levels</span><button class="text-button" id="edit-mission" disabled>Edit mission</button></div>
+      <div class="primary-actions"><button class="primary" id="deploy" disabled>Deploy the drive <span aria-hidden="true">↗</span></button><button class="secondary" id="expand" hidden>Open flight deck <span aria-hidden="true">⤢</span></button><button class="secondary" id="fork-plan" hidden>Build on this crew <span aria-hidden="true">↗</span></button></div>
+      <p class="truth-note" id="truth-note">The chat does the work. Heart of Gold makes the plan and contributions inspectable.</p>
+    </footer>
+    <section class="message-preview" id="message-preview" hidden aria-labelledby="message-preview-title"><h2 id="message-preview-title">The departure message</h2><p>Preview only. Nothing was sent, and no agents were started.</p><pre id="message-preview-content"></pre><button class="secondary" id="copy-message">Copy message</button></section>
+  </main>
+  <!-- HOG_SCRIPT -->
+</body>
+</html>

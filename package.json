@@ -5,11 +5,22 @@
   "type": "module",
   "private": true,
   "license": "MIT",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
+    "build:plugin": "node scripts/build-plugin.mjs",
     "start": "node server.mjs",
     "start:hosted": "node hosted-server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check server.mjs && node --check hosted-server.mjs && node --check public/app.js && node --check public/swarm-field.mjs && node --check lib/runtime.mjs && node --check lib/adapters.mjs && node --check lib/result-schema.mjs && node --check lib/provider-adapter.mjs && node --check lib/hosted-sessions.mjs"
+    "check": "node --check server.mjs && node --check hosted-server.mjs && node --check public/app.js && node --check public/swarm-field.mjs && node --check lib/runtime.mjs && node --check lib/adapters.mjs && node --check lib/result-schema.mjs && node --check lib/provider-adapter.mjs && node --check lib/hosted-sessions.mjs && node --check lib/plugin.mjs && node --check lib/crew-contract.mjs && node --check plugins/heart-of-gold/ui/app.js && node --check scripts/build-plugin.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "2.0.4",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }

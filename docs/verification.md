@@ -51,4 +51,4 @@ The live local check used macOS, Node 26.8.1, and Codex CLI 0.166.0. CLI transpo
 - Production-grade isolation, confidentiality, or comprehensive denial-of-service resistance.
 - Continuous hosted availability, session continuity across restarts, or real paid provider inference.
 
-Public GitHub/Pages publication and the subsequent ProjectForty2 route were authorized on 5 November 2026; [publication.md](publication.md) records their scope. Hosted ChatGPT OAuth remains an unsubmitted [access request and integration proposal](chatgpt-sign-in.md).
+Public GitHub/Pages publication and the subsequent ProjectForty2 route were authorized on 5 November 2026; [publication.md](publication.md) records their scope. The hosted ChatGPT OAuth [access request](chatgpt-sign-in.md) was subsequently submitted with owner approval on 5 November 2026; OpenAI confirmed receipt. Approval and implementation remain outstanding.

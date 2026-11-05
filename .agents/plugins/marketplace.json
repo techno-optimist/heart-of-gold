@@ -1,0 +1,20 @@
+{
+  "name": "projectforty2",
+  "interface": {
+    "displayName": "ProjectForty2"
+  },
+  "plugins": [
+    {
+      "name": "heart-of-gold",
+      "source": {
+        "source": "local",
+        "path": "./plugins/heart-of-gold"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

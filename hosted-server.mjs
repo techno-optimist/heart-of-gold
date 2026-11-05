@@ -1,12 +1,13 @@
 import http from 'node:http';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual, createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { SwarmRuntime } from './lib/runtime.mjs';
 import { DemoAdapter } from './lib/adapters.mjs';
 import { HostedSessions, SharedGate, WindowRateLimit } from './lib/hosted-sessions.mjs';
 import { discoverModels, ProviderAdapter, PROVIDERS } from './lib/provider-adapter.mjs';
+import { createPluginHandler } from './lib/plugin.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 export const BASE = '/heartofgold';
@@ -62,6 +63,9 @@ export async function createHostedServer({
 } = {}) {
   const parsedOrigin = new URL(publicOrigin);
   if (parsedOrigin.origin !== publicOrigin || (parsedOrigin.protocol !== 'https:' && !(dev && ['localhost', '127.0.0.1'].includes(parsedOrigin.hostname)))) throw new Error('PUBLIC_ORIGIN must be an HTTPS origin (localhost HTTP requires HOSTED_DEV=true).');
+  const pluginResource = path.join(ROOT, 'plugins/heart-of-gold/ui/dist/flight-deck.html');
+  const plugin = await createPluginHandler({ resourcePath: pluginResource });
+  const pluginOrigins = new Set([publicOrigin, 'https://chatgpt.com', 'https://chat.openai.com']);
   const gate = new SharedGate(globalConcurrency);
   const globalRequests = new WindowRateLimit({ limit: 1200, windowMs: 60000, now });
   const ipRequests = new WindowRateLimit({ limit: 600, windowMs: 60000, now });
@@ -123,6 +127,27 @@ export async function createHostedServer({
       if (ingressToken && !equal(req.headers['x-hog-ingress'], ingressToken)) throw httpError(403, 'INGRESS_DENIED', 'Use the ProjectForty2 flight deck.');
       const ip = ingressToken && req.headers['x-hog-client-ip'] ? String(req.headers['x-hog-client-ip']).slice(0, 100) : req.socket.remoteAddress;
       if (!globalRequests.take('all') || !ipRequests.take(ip)) throw httpError(429, 'REQUEST_LIMIT', 'Too many requests. Please wait a minute.');
+      // The plugin is a public, stateless transformation endpoint. It never
+      // reads website cookies, provider credentials, or flight history.
+      if (url.pathname === `${BASE}/mcp`) {
+        if (req.headers.origin && !pluginOrigins.has(req.headers.origin)) throw httpError(403, 'ORIGIN_DENIED', 'This plugin origin is not allowed.');
+        if (req.headers.origin) {
+          res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+          res.setHeader('Vary', 'Origin');
+        }
+        if (req.method === 'OPTIONS') {
+          res.setHeader('Access-Control-Allow-Methods', 'POST, GET, DELETE, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, MCP-Protocol-Version');
+          res.writeHead(204); res.end(); return;
+        }
+        await plugin.handle(req, res); return;
+      }
+      if (req.method === 'GET' && url.pathname === `${BASE}/plugin-preview/`) {
+        const html = await readFile(pluginResource, 'utf8');
+        const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => `'sha256-${createHash('sha256').update(match[1]).digest('base64')}'`).join(' ');
+        res.setHeader('Content-Security-Policy', `default-src 'none'; script-src ${hashes}; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`);
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(html); return;
+      }
       if (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin && req.headers.origin !== publicOrigin)) throw httpError(403, 'ORIGIN_DENIED', 'Requests must come from the ProjectForty2 flight deck.');
       if (['POST', 'DELETE', 'PUT', 'PATCH'].includes(req.method) && req.headers.origin !== publicOrigin) throw httpError(403, 'ORIGIN_REQUIRED', 'A matching request origin is required.');
       if (url.pathname === BASE) { res.writeHead(308, { Location: `${BASE}/` }); res.end(); return; }
@@ -225,7 +250,7 @@ export async function createHostedServer({
   return {
     server, sessions, gate,
     async listen(port = 4242, host = '0.0.0.0') { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, host, resolve); }); return `http://${host}:${server.address().port}${BASE}/`; },
-    async close() { clearInterval(sweepTimer); await sessions.close(); await new Promise(resolve => server.close(resolve)); },
+    async close() { clearInterval(sweepTimer); await sessions.close(); await plugin.close(); await new Promise(resolve => server.close(resolve)); },
   };
 }
 
