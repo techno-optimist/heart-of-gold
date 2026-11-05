@@ -355,3 +355,6 @@ input,select,.role-form textarea,.mission-settings textarea{display:block;max-wi
  .deck[data-has-project=false]:is([data-phase=complete],[data-phase=partial]) .field-tools button{min-width:0;min-height:44px;white-space:normal;font-size:9px;line-height:1.35;padding:0;text-align:left}
  .deck[data-has-project=false]:is([data-phase=complete],[data-phase=partial]) #fork-plan{white-space:normal;padding:0}
 }
+
+/* A finished project is fully usable; contribution inspection remains in Crew and Source. */
+.deck:is([data-phase=complete],[data-phase=partial]) .component-overlay{display:none}
