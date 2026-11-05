@@ -18,13 +18,15 @@ Observed locally for v0.2:
 - Provider checks use synthetic keys and mocked HTTP responses. They cover request shape, discovery/filtering, cancellation, response bounds, and sanitized failures. Hosted checks include session isolation, origin/token controls, expiry, connection races, and credential handling.
 - A hosted browser demo completed with seven nodes. A rejected provider key produced an error and the key input was cleared.
 - JavaScript syntax checks passed after the provider UI changes.
-- App CI passed on Node 22 and 24. The initial edge route passed 120 tests; the cookie-isolation repair passed 122. The deployed app commit is `d1475d0`; the corrected edge commit is `dffdbd5`.
+- App CI passed on Node 22 and 24. The initial edge route passed 120 tests; the cookie-isolation repair passed 122. The initial hosted app commit was `d1475d0`; the corrected edge commit is `dffdbd5`. The redesign deployment is recorded below.
 
 **No paid OpenAI, Claude, or Grok inference has been run through the hosted adapter with real credentials.** Mocked success does not establish real account access, model compatibility, billing, latency, or output quality. Model discovery alone would establish catalog access, not task completion.
 
 The frontend refuses simulator fallback when its hosted backend is unavailable. Pages fallback remains explicitly browser-only. Keys are cleared before connection requests and on dialog closure; they are not stored by the frontend. Expiry is rechecked because API activity can extend the idle window; provider-disconnect events refresh account state.
 
 ## Cursor playground redesign — 5 November 2026
+
+The redesign is live at [projectforty2.ai/heartofgold/](https://projectforty2.ai/heartofgold/), deployed from `a50cfd220bcc1f49d39e60effa002a307e7b86b0`. The **18:57 UTC** [synthetic release check](receipts/redesign-smoke.json) passed all ten checks, including exact hashes for the live CSS, JavaScript, renderer, favicon, and four fonts; a seven-node/39-event scripted flight; and fresh-session isolation. The live browser displayed the new interface and enabled its mission controls. [Node 22/24 CI](https://github.com/techno-optimist/heart-of-gold/actions/runs/42088982068) and the [Pages publication](https://github.com/techno-optimist/heart-of-gold/actions/runs/42088982132) passed.
 
 The interface was rebuilt around the reference’s open canvas and labeled cursor choreography, using ProjectForty2’s colors, wordmark, and typography. The opening scene is an explicitly labeled visual rehearsal. Real flight nodes still come from coordinator events.
 
