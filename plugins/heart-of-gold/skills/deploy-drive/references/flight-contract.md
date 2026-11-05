@@ -1,6 +1,6 @@
 # Persistent flight contract
 
-`build_crew` opens one deck with resource `ui://heart-of-gold/flight-deck-v5.html`. Quiet data tools update and read its temporary server state without rendering another card. The tools do not run the crew: report only work performed by this chat or actual host workers.
+`build_crew` opens one deck with resource `ui://heart-of-gold/flight-deck-v6.html`. Quiet data tools update and read its temporary server state without rendering another card. The tools do not run the crew: report only work performed by this chat or actual host workers.
 
 ## `build_crew`
 
@@ -59,6 +59,8 @@ For `native_agents`, every delegated child whose status is no longer `planned` r
 The app-only `read_flight` tool accepts `flightId`, `readToken`, and optional `afterRevision`; it returns the latest snapshot when changed. The mounted component performs these reads. The app-only `save_plan` tool saves an edited, unstarted plan using the same write capability and expected revision. Before its brief Engage drive request (Deploy in earlier versions), the UI supplies the updated plan, capability, and revision to model context. The lead must use that current plan rather than replacing it with the original preset.
 
 Writes use optimistic revision checks. After authenticating a valid write capability, an old revision returns `isError: true` with `FLIGHT_CONFLICT` in error metadata and `structuredContent: { flight: { id, revision, expiresAt }, currentSnapshot }`. Reconcile the returned full snapshot with the user's actual edits before submitting a new update; do not merely replace the revision number and retry. Recovery does not return a capability, so retain the one already held. Missing/expired flights and incorrect capabilities return `FLIGHT_UNAVAILABLE` without a snapshot or revision; do not infer which condition occurred or open another card automatically. Malformed or missing input fields can also fail schema validation.
+
+A transient protocol `Internal error` (`-32603`) without a specific rejection permits one retry of the identical `show_flight` request with the same `expectedRevision`. This is a retry of reporting, not execution. If the first request committed despite its failed response, the retry may conflict: inspect the authenticated current snapshot, retain its revision if it already reflects the intended update, and otherwise reconcile before writing. Do not rerun workers, create another flight, or blindly retry an explicit rejection. If reporting still fails, preserve the actual results in the conversation and distinguish the failed board update from the work itself.
 
 Flight access expires two hours after creation and activity does not extend it. Expired entries are removed on access or the next cleanup sweep, scheduled every 60 seconds. Only the latest snapshot is held; previous versions are not retained. State exists only in this server process and is lost on restart or shutdown. Capacity is limited to 128 flights, 8 MiB total, and 96 KiB per flight. Full capacity rejects new flights or oversized updates; it does not evict a live flight to make room. There is no list endpoint, durable history, account cookie, or capability in a URL.
 

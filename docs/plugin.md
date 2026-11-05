@@ -2,7 +2,7 @@
 
 A small crew for big questions. One flight deck stays in the chat while the crew works: the plan becomes actual starts, contributions, critique, and synthesis in that same card. The chat host performs the work. ProjectForty2's MCP service holds the latest reported state for the deck; it does not run an external model.
 
-This is the `0.4.0` plugin package, separate from the website's release numbering. It adds stronger working motion and report age to the shared website canvas within the existing one-card protocol. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
+This is the `0.4.1` plugin package, separate from the website's release numbering. It keeps working motion tied to available reports and adds bounded recovery for a transient board-update error within the existing one-card protocol. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
 
 ## What you get
 
@@ -35,6 +35,8 @@ Only `build_crew` attaches the UI resource. `show_flight` updates temporary serv
 The host remains the source of work claims. The lead reports actual worker start, completion, failure, and cancellation; related events may be batched. Guided passes remain explicitly one assistant. A moving cursor does not mean the server is watching model tokens. Selection, expanded contributions, and other presentation choices belong to the mounted UI, so refreshing data need not replace the card or reset those choices.
 
 An observed start begins a member's continuous journey through the shared field; an observed completion receives a brief handoff accent. Report age shows how recently the deck received work information. Hover, keyboard focus, and selection hold a cursor for inspection. Pause and reduced-motion preferences stop choreography while reports can still arrive. The animation does not infer new work, add agents, or provide continuous worker telemetry.
+
+Motion also pauses when the connection or refresh fails, the flight expires, or a cached view awaits verification. A successful read permits motion again while preserving the user's pause choice. A transient internal error while reporting permits one identical update retry on the same flight and revision; conflicts require reconciliation. This never restarts workers, and a reporting failure does not mean their work failed.
 
 Temporary state can expire or disappear on a server restart. The deck should say that its connection is unavailable and preserve any already displayed result, rather than marking unfinished work complete or silently creating another card. The chat can still carry the requested deliverable. A new card is appropriate for a new mission or an explicit request to reopen one.
 
@@ -83,7 +85,7 @@ Official guidance explains that imported MCP declarations can produce a Desktop-
 2. Build an account-specific archive from the repository root, replacing the example argument with your registered app ID:
 
    ```sh
-   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.4.0
+   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.4.1
    ```
 
 3. In ChatGPT **Plugins → + → Upload archive**, upload this private ZIP, or use the existing personal plugin's update action. Inspect the imported details and select **Install plugin** when available. Start setup or a new Work chat and verify the skill and connected tools. Account/workspace policies still apply.
@@ -122,7 +124,7 @@ The portable package uses the Agent Plugins `1.0.0` schemas, with OpenAI listing
 Create a release archive from the repository root with Node 22+ and Python 3 (standard library only):
 
 ```sh
-node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.4.0.zip
+node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.4.1.zip
 ```
 
 The ZIP has `plugin.json` and `mcp.json` directly at its root, alongside `LICENSE`, `skills/`, and `assets/`. It excludes the website, UI source/build output, marketplace catalog, dependencies, and local data. The packager rejects symlinks, unreviewed file types, missing referenced assets, and common credential/private-path patterns; it verifies the archive and prints its SHA-256. Identical source files produce identical ZIP bytes. These checks do not replace source review or the platform's own validation. Creating the ZIP does not install, upload, submit, or approve it.

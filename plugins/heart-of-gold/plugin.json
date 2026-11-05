@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "heart-of-gold",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "A small crew for big questions. Plan, challenge, and synthesize useful work with an inspectable flight deck.",
   "author": {
     "name": "ProjectForty2",
@@ -104,7 +104,7 @@
         "commerce_description": "This plugin does not sell products, process payments, or invoke external AI providers. Host account usage applies."
       },
       "publication": {
-        "release_notes": "Adds continuous cursor journeys while members are reported working, with handoff accents for observed completions, visible report age, and hover/focus/selection holds. Pause and reduced-motion preferences stop choreography independently of report updates. The shared ProjectForty2 canvas stays in one card; its motion is presentation, not continuous worker telemetry or a live token stream."
+        "release_notes": "Pauses illustrative work motion when updates disconnect, fail, expire, or await cached-state verification; successful refresh resumes it unless the user paused. Report age uses authoritative receipt time. The skill can retry one transient internal board-update error on the same flight and revision without rerunning workers or opening another card. Motion remains presentation, not continuous worker telemetry."
       }
     }
   }

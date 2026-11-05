@@ -10,12 +10,13 @@ const executions = new Set(['not_started', 'guided_passes', 'native_agents']);
 const clip = (value, max = 2000) => typeof value === 'string' ? value.slice(0, max) : '';
 const label = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const isPreview = window.parent === window;
-const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.4.0' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
+const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.4.1' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
 const state = { snapshot: null, selectedId: null, dirty: false, editing: false, missionEditing: false, pending: null, receivedAt: null, connected: false, canMessage: false, busy: false, sentRevision: null, revision: 0, hostContext: {}, lastMessage: '', flight: null, remoteSignature: '', sync: 'waiting', expired: false, polling: false, pollFailures: 0, unchangedReads: 0, awaitingUpdate: false, messageUnconfirmed: false, messageRevision: null, milestone: '', evidenceKey: '', questionsKey: '', tornDown: false, cached: false, authoritativeSnapshot: null, authoritativeReceivedAt: null };
 const crewRows = new Map();
 const shipLog = [];
 let lastLoggedRevision = 0;
 let motionPaused = false;
+let appliedMotionPause = false;
 const swarmField = createSwarmField({ stage: $('star-map'), canvas: $('swarm-canvas'), nodesLayer: $('map-nodes'), onSelect: id => {
   if (id) selectMember(id);
 } });
@@ -86,25 +87,31 @@ function describeMilestone(previous, next) {
   if (failed) return `${failed.name} · ${failed.status}.`;
   return next.execution === 'not_started' ? 'Crew assembled. Ready for departure.' : state.milestone || 'Waiting for the next reported milestone.';
 }
+function syncFieldMotion() {
+  const reportsUnavailable = !isPreview && (!state.connected || state.expired || state.cached || state.sync === 'reconnecting');
+  const pause = motionPaused || reportsUnavailable;
+  if (pause !== appliedMotionPause) { appliedMotionPause = pause; swarmField.setPaused(pause); }
+}
 function refreshSyncLabel() {
+  syncFieldMotion();
   if (!state.snapshot) return;
   const received = state.cached ? state.receivedAt : state.authoritativeReceivedAt ? new Date(state.authoritativeReceivedAt) : state.receivedAt;
   const time = received?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '—';
   const seconds = received ? Math.max(0, Math.floor((Date.now() - received.getTime()) / 1000)) : null;
   const age = seconds == null ? 'not yet received' : seconds < 5 ? 'just now' : seconds < 60 ? `${seconds}s ago` : seconds < 3600 ? `${Math.floor(seconds / 60)}m ago` : `${Math.floor(seconds / 3600)}h ago`;
-  const receipt = state.expired ? 'Updates unavailable' : state.cached ? 'Saved report' : state.sync === 'reconnecting' ? 'Refresh interrupted' : `Last report · ${age}`;
+  const receipt = state.expired || (!isPreview && !state.connected) ? 'Updates unavailable' : state.cached ? 'Saved report' : state.sync === 'reconnecting' ? 'Refresh interrupted' : `Last report · ${age}`;
   writeText('receipt-age', receipt);
   $('receipt-age').title = received ? `Received ${received.toLocaleString()}. Cursor motion is illustrative; status comes from host reports.` : 'Waiting for a report from the chat host.';
   let text = state.dirty ? 'Draft edited' : `Last report ${time}`;
   if (isPreview) text = 'Browser preview';
-  else if (state.expired) text = 'Flight unavailable · last report retained';
+  else if (state.expired || !state.connected) text = 'Updates unavailable · last report retained';
   else if (state.cached) text = 'Saved report · checking latest state';
   else if (state.sync === 'reconnecting') text = 'Refresh interrupted · retrying';
   else if (document.hidden) text = 'Updates paused while hidden';
   else if (state.flight && !terminal()) text = state.dirty ? 'Draft edited · board watching' : `Watching · ${time}`;
   writeText('snapshot-label', text);
   $('deck').dataset.sync = document.hidden ? 'paused' : state.sync;
-  $('deck').dataset.fresh = String(!document.hidden && !state.expired && Date.now() - (received?.getTime() || 0) < 30000);
+  $('deck').dataset.fresh = String(!document.hidden && state.connected && !state.expired && !state.cached && state.sync !== 'reconnecting' && Date.now() - (received?.getTime() || 0) < 30000);
   $('refresh-flight').hidden = !state.flight;
   $('refresh-flight').disabled = state.expired || !state.connected || state.polling || state.busy;
 }
@@ -234,6 +241,7 @@ function renderMap() {
   const members = state.snapshot?.members || [];
   $('crew-count').textContent = `${members.length} / 7 ${state.snapshot?.execution === 'native_agents' ? 'members' : 'roles'}`;
   swarmField.update(flightFieldState(state.snapshot, state.flight?.id, state.selectedId));
+  syncFieldMotion();
 }
 
 function renderCrewList() {
@@ -449,7 +457,7 @@ export function crewPlan(snapshot) {
 for (const [button, dialog] of [['open-crew', 'crew-dialog'], ['open-log', 'log-dialog'], ['open-report', 'report-dialog'], ['open-guide', 'guide-dialog']]) $(button).addEventListener('click', () => openDialog(dialog));
 for (const button of document.querySelectorAll('[data-close-dialog]')) button.addEventListener('click', () => $(button.dataset.closeDialog)?.close());
 $('pause-motion').addEventListener('click', () => {
-  motionPaused = !motionPaused; swarmField.setPaused(motionPaused);
+  motionPaused = !motionPaused; syncFieldMotion();
   $('pause-motion').setAttribute('aria-pressed', String(motionPaused));
   $('pause-motion').textContent = motionPaused ? 'Resume motion' : 'Pause motion';
 });
