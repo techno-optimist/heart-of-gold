@@ -243,3 +243,11 @@ input,select,.role-form textarea,.mission-settings textarea{display:block;max-wi
 .deck[data-has-project=true][data-display=fullscreen] .project-heading{padding:7px 12px}
 .deck[data-has-project=true][data-display=fullscreen] .project-heading h3{font-size:23px}
 @media(max-width:760px){.deck[data-has-project=true][data-display=fullscreen]>.masthead{height:56px}.deck[data-has-project=true][data-display=fullscreen] .project-workspace{left:12px;right:12px;top:85px;bottom:112px}.deck[data-has-project=true][data-display=fullscreen] .project-links button{font-size:8px}.deck[data-has-project=true][data-display=fullscreen] .project-heading{padding:6px 10px}.deck[data-has-project=true][data-display=fullscreen] .project-heading h3{font-size:21px}.deck[data-has-project=true][data-display=fullscreen] .mission-dock{width:calc(100% - 24px)}.deck[data-has-project=true][data-display=fullscreen] .project-preview-toolbar{min-height:36px}.deck[data-has-project=true][data-display=fullscreen] .project-preview-toolbar button{min-height:36px}}
+/* While the crew builds, fullscreen gives its pixels to the actual project. */
+.deck[data-has-project=true][data-display=fullscreen] .project-workspace[data-project-mode=preview]>.project-heading{display:none}
+.deck[data-has-project=true][data-display=fullscreen][data-phase=working] .scene-state{top:7px;left:16px;right:16px;align-items:flex-start}
+.deck[data-has-project=true][data-display=fullscreen][data-phase=working] .scene-state>div{display:none}
+.deck[data-has-project=true][data-display=fullscreen][data-phase=working] .run-state{display:flex;flex-direction:row;align-items:center;gap:14px;margin:0;white-space:nowrap}
+.deck[data-has-project=true][data-display=fullscreen][data-phase=working] .mission-dock{display:none}
+.deck[data-has-project=true][data-display=fullscreen][data-phase=working] .project-workspace[data-project-mode=preview]{top:40px;bottom:52px}
+.deck[data-has-project=true][data-display=fullscreen] .project-workspace[data-project-mode=preview] .project-preview-toolbar,.deck[data-has-project=true][data-display=fullscreen] .project-workspace[data-project-mode=preview] .project-preview-toolbar button{min-height:44px}
