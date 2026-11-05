@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { createProject, projectSnapshotSchema, MAX_PROJECT_FILE_BYTES } from '../lib/project-contract.mjs';
+import { createProject, projectSnapshotSchema, MAX_PROJECT_FILE_BYTES, MAX_COMPONENT_EVENT_BYTES } from '../lib/project-contract.mjs';
 import { FlightStore } from '../lib/flight-store.mjs';
 
 const crew = () => ({ mission: 'Build a working task list.', execution: 'guided_passes', status: 'working', members: [
@@ -113,4 +113,98 @@ test('project aggregate capacity failure leaves the old project and revision int
   const larger = input(); larger.files[1].content = 'x'.repeat(4500);
   assert.throws(() => store.updateProject(a.flight.id, a.flight.writeToken, 2, larger), code('FLIGHT_CAPACITY'));
   assert.deepEqual(store.stats, before); assert.deepEqual(store.read(a.flight.id, a.readToken).snapshot.project, first.snapshot.project);
+});
+
+const componentInput = () => ({ ...input(), components: [
+  { id: 'task-form', label: 'Task form', memberId: 'builder', filePaths: ['index.html'] },
+  { id: 'task-actions', label: 'Task actions', memberId: 'builder', filePaths: ['app.js'] },
+], changedComponentIds: ['task-form', 'task-actions'] });
+
+test('component checkpoints derive events from actual file changes, while metadata keeps the same source identity', () => {
+  const first = createProject(componentInput(), crew(), { flightRevision: 2, now: 10 });
+  assert.equal(first.components.length, 2); assert.equal(first.events.length, 2);
+  assert.deepEqual(first.events.map(event => [event.seq, event.componentId, event.changedPaths]), [[1, 'task-form', ['index.html']], [2, 'task-actions', ['app.js']]]);
+  assert.equal(first.events[0].flightRevision, 3); assert.equal(first.events[0].projectRevision, 1);
+  assert.equal(first.events[0].at, '1970-01-01T00:00:00.010Z');
+  assert.equal(first.events[0].sourceDigest, first.sourceDigest); assert.equal(first.events[0].kind, 'component.updated');
+  assert.equal(first.changedComponentIds, undefined); assert(!JSON.stringify(first.events).includes(first.files[0].content));
+  const metadata = input(); metadata.title = 'A revised project label'; metadata.checks = [];
+  const second = createProject(metadata, { ...crew(), project: first }, { flightRevision: 3, now: 20 });
+  assert.equal(second.revision, 2); assert.equal(second.sourceDigest, first.sourceDigest);
+  assert.deepEqual(second.components, first.components); assert.deepEqual(second.events, first.events); assert.deepEqual(second.changes, []);
+  const checkpoint = input(); checkpoint.files[1].content += 'document.body.dataset.ready="yes";'; checkpoint.changedComponentIds = ['task-actions'];
+  const third = createProject(checkpoint, { ...crew(), project: second }, { flightRevision: 4, now: 30 });
+  assert.equal(third.events.length, 3); assert.equal(third.events.at(-1).seq, 3);
+  assert.equal(third.events.at(-1).componentId, 'task-actions'); assert.deepEqual(third.events.at(-1).changedPaths, ['app.js']);
+  assert.equal(third.components[0].sourceDigest, first.components[0].sourceDigest);
+  assert.notEqual(third.components[1].sourceDigest, first.components[1].sourceDigest);
+});
+
+test('component declarations cannot fabricate activity, arbitrary selectors, or unsupported mappings', () => {
+  const first = createProject(componentInput(), crew(), { flightRevision: 1 });
+  assert.throws(() => createProject(componentInput(), { ...crew(), project: first }, { flightRevision: 2 }), code('INVALID_PROJECT'));
+  for (const modify of [
+    value => { value.changedComponentIds = ['missing']; },
+    value => { value.changedComponentIds = ['task-form', 'task-form']; },
+    value => { value.components[1].id = 'task-form'; },
+    value => { value.components[0].filePaths = ['missing.html']; },
+    value => { value.components[0].filePaths = ['index.html', 'index.html']; },
+    value => { value.components[0].selector = 'body *'; },
+    value => { value.components[0].id = 'unsafe"] body'; },
+    value => { value.components[0].memberId = 'unknown-worker'; },
+    value => { value.components = Array.from({ length: 13 }, (_, i) => ({ id: `component-${i}`, label: 'Part', memberId: 'builder', filePaths: ['index.html'] })); },
+  ]) {
+    const value = componentInput(); modify(value);
+    assert.throws(() => createProject(value, crew(), { flightRevision: 1 }), code('INVALID_PROJECT'));
+  }
+  const unrelated = input(); unrelated.files[1].content += '/* changed */'; unrelated.changedComponentIds = ['task-form'];
+  assert.throws(() => createProject(unrelated, { ...crew(), project: first }, { flightRevision: 2 }), code('INVALID_PROJECT'));
+});
+
+test('component mapping retention is explicit when files disappear and historical owners cannot author new changes', () => {
+  const first = createProject(componentInput(), crew(), { flightRevision: 1 });
+  const removed = input(); removed.files.pop();
+  assert.throws(() => createProject(removed, { ...crew(), project: first }, { flightRevision: 2 }), code('INVALID_PROJECT'));
+  removed.components = []; const cleared = createProject(removed, { ...crew(), project: first }, { flightRevision: 2 });
+  assert.deepEqual(cleared.components, []); assert.deepEqual(cleared.events, first.events);
+  const nextCrew = { ...crew(), project: first, members: [crew().members[0], { id: 'new-builder', parentId: 'lead', status: 'working' }] };
+  const retained = createProject(input(), nextCrew, { flightRevision: 2 });
+  assert.equal(retained.components[0].memberId, 'builder');
+  const changed = input(); changed.files[0].content += '<p>New content</p>'; changed.files[0].memberId = 'new-builder'; changed.changedComponentIds = ['task-form'];
+  assert.throws(() => createProject(changed, nextCrew, { flightRevision: 2 }), code('INVALID_PROJECT'));
+  changed.components = componentInput().components; changed.components[0].memberId = 'new-builder';
+  const updated = createProject(changed, nextCrew, { flightRevision: 2 });
+  assert.equal(updated.events.at(-1).memberId, 'new-builder');
+});
+
+test('component events retain only bounded metadata with monotonic sequence across skipped polls', () => {
+  let current = crew();
+  for (let i = 1; i <= 70; i++) {
+    const value = componentInput(); value.files[0].content = `<p data-hog-component="task-form">Checkpoint ${i}</p>`;
+    value.changedComponentIds = ['task-form'];
+    current = { ...current, project: createProject(value, current, { flightRevision: i, now: i }) };
+  }
+  assert.equal(current.project.events.length, 64); assert.equal(current.project.events[0].seq, 7); assert.equal(current.project.events.at(-1).seq, 70);
+  assert(current.project.files[0].content.includes('Checkpoint 70')); assert(!JSON.stringify(current.project.events).includes('Checkpoint 1'));
+  assert(Buffer.byteLength(JSON.stringify(current.project.events)) <= MAX_COMPONENT_EVENT_BYTES);
+  let large = crew();
+  for (let i = 1; i <= 15; i++) {
+    const files = Array.from({ length: 24 }, (_, index) => ({ path: `file-${index}-${'x'.repeat(140)}.txt`, content: String(i), memberId: 'builder' }));
+    const value = { title: 'Long path receipts', files, checks: [], components: [{ id: 'all-files', label: 'Files', memberId: 'builder', filePaths: files.map(file => file.path) }], changedComponentIds: ['all-files'] };
+    large = { ...large, project: createProject(value, large, { flightRevision: i, now: i }) };
+  }
+  assert(large.project.events.length < 15); assert.equal(large.project.events.at(-1).seq, 15);
+  assert(Buffer.byteLength(JSON.stringify(large.project.events)) <= MAX_COMPONENT_EVENT_BYTES);
+});
+
+test('component receipts use the same atomic CAS and cannot advance on rejected writes or crew status updates', t => {
+  const store = new FlightStore(); t.after(() => store.close()); const a = store.create(crew());
+  const first = store.updateProject(a.flight.id, a.flight.writeToken, 1, componentInput());
+  const checkpoint = input(); checkpoint.files[1].content += '/* real edit */'; checkpoint.changedComponentIds = ['task-actions'];
+  assert.throws(() => store.updateProject(a.flight.id, a.flight.writeToken, 1, checkpoint), code('FLIGHT_CONFLICT'));
+  const before = store.read(a.flight.id, a.readToken); assert.deepEqual(before.snapshot.project.events, first.snapshot.project.events);
+  const statusOnly = store.update(a.flight.id, a.flight.writeToken, 2, { ...crew(), status: 'complete' });
+  assert.deepEqual(statusOnly.snapshot.project, first.snapshot.project);
+  const updated = store.updateProject(a.flight.id, a.flight.writeToken, 3, checkpoint);
+  assert.equal(updated.snapshot.project.events.at(-1).seq, 3); assert.equal(updated.snapshot.project.events.at(-1).flightRevision, 4);
 });

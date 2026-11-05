@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "heart-of-gold",
-  "version": "0.5.0",
-  "description": "A small crew for real work. Build artifacts, inspect source revisions, challenge contributions, and bring back a useful result.",
+  "version": "0.6.0",
+  "description": "Watch a small crew build real components in one live ProjectForty2 flight deck.",
   "author": {
     "name": "ProjectForty2",
     "url": "https://projectforty2.ai"
@@ -21,21 +21,21 @@
     "com.openai": {
       "interface": {
         "displayName": "Heart of Gold",
-        "shortDescription": "A small crew for big questions",
-        "longDescription": "Turn a task into a bounded crew and inspect its actual work in one persistent flight deck. For build tasks, the host creates artifacts with its available tools and sends selected source files, member attribution, and check results at real milestones. The deck shows the latest files and an isolated preview where supported; it does not run a server-side build or verify host-reported tests. Real delegated workers require host tools; otherwise one assistant performs clearly labeled passes. No provider API key or external AI model call is required. ProjectForty2 keeps the latest supplied flight and project temporarily in bounded server memory, with no durable file history or automatic public publishing. Your host's capabilities, permissions, and usage limits apply. An open-source, unofficial Hitchhiker-inspired experiment from ProjectForty2.",
+        "shortDescription": "Watch your crew build together",
+        "longDescription": "Turn a task into a bounded crew and watch its actual component checkpoints arrive in one persistent flight deck. For web builds, workers own named components, the lead publishes real source as each usable piece arrives, and contributor cursors mark those components on the working project canvas. Source, changes, and reported checks remain available. Updates follow actual host reports; cursor movement visualizes those reports and is not a recording of agent mouse activity. Self-contained HTML/CSS/JavaScript can preview in an isolated sandbox. Host tools are required for agents, dependency builds, tests, and deployment. No provider API key or external model call is required by this plugin. ProjectForty2 keeps the latest selected source and up to 64 component-update receipts temporarily in bounded server memory, with no durable source history or automatic public publishing. Your host capabilities, permissions, and usage limits apply. An open-source, unofficial Hitchhiker-inspired experiment from ProjectForty2.",
         "developerName": "ProjectForty2",
         "category": "Productivity",
         "capabilities": [
-          "Plan a bounded crew",
-          "Inspect artifact revisions",
-          "Review reported checks",
-          "Synthesize a deliverable"
+          "Build with a bounded crew",
+          "Watch component updates",
+          "Inspect actual source",
+          "Review reported checks"
         ],
         "websiteURL": "https://projectforty2.ai/heartofgold/",
         "supportURL": "https://github.com/techno-optimist/heart-of-gold/issues",
         "privacyPolicyURL": "https://projectforty2.ai/heartofgold/plugin-privacy.html",
         "defaultPrompt": [
-          "Build a small working task board with Heart of Gold. Show real source revisions in this deck, include a reviewer, and test its core interaction with the available browser tools.",
+          "Build a small useful web app with Heart of Gold. Let each worker own a visual component, publish the real shell first, and show each usable component arriving in this one flight deck while the crew works. Include a reviewer and test the result.",
           "Bring in the debate team. Compare two approaches and give me a recommendation with the strongest objection.",
           "Build a crew for this task. Show the workstreams first; wait before doing the work."
         ],
@@ -61,10 +61,10 @@
               "expected_behavior": "Perform substantive planning and critique, resolve the strongest objection, and return a usable plan. The final snapshot is guided_passes with concrete member results, a synthesis, and no worker IDs or invented research. Open one flight deck only; any later updates target that same flight without rendering additional cards."
             },
             {
-              "description": "Build a working artifact through genuine source revisions and test its interaction.",
-              "prompt": "Heart of Gold: build a small task-board website using HTML, CSS, and JavaScript. It must add, complete, filter, and remove tasks. Use available host file tools and workers; keep actual source revisions and checks in one deck. Test the core interaction in a browser if available. Do not deploy or publish the code publicly.",
+              "description": "Build visibly through genuine component checkpoints while other workers remain active.",
+              "prompt": "Heart of Gold: build a small task-board website using HTML, CSS and JavaScript. Assign task entry, task list, and filters to distinct workers when available. Publish a real runnable shell first, then immediately integrate each actual component checkpoint while other workers continue. Use stable data-hog-component anchors, component ownership and actual changedComponentIds in one flight deck. Test add, complete, filter and remove. Do not deploy publicly.",
               "tools_triggered": "build_crew, show_flight, update_project",
-              "expected_behavior": "Create actual source files with available host tools, use true member/worker attribution, and send complete current file sets at genuine milestones on the same flight. Checks describe commands or browser interactions actually performed; unexecuted checks remain not_run. Preview uses supplied code, not a canned demo. No fabricated revision history, successful tests, native workers, or public deployment. If a needed host capability is absent, state that exact limit. Open one deck only."
+              "expected_behavior": "Open one card. Publish actual shell files before substantive components exist; use real native worker IDs when available, otherwise guided passes. Publish each genuinely delivered component with matching DOM anchor, mapped files, attribution and changedComponentIds while other work continues. Never hide prefinished code for staged reveals, invent progress, or replay a fabricated construction history. Preserve the same flight. Checks describe actual execution or not_run. A late viewer sees the current state without replaying historical building."
             },
             {
               "description": "Revise a plan before launch without losing the user's constraints.",
@@ -104,7 +104,7 @@
         "commerce_description": "This plugin does not sell products, process payments, or invoke external AI providers. Host account usage applies."
       },
       "publication": {
-        "release_notes": "Adds UI-less update_project for actual source files, crew attribution, canonical content hashes, and revision-bound reported checks inside the existing flight deck. Host tools perform the build and tests; the plugin stores the latest selected text files temporarily and provides source inspection plus isolated preview where supported. No automatic repository writes, dependency installs, external inference, or public deployment."
+        "release_notes": "Adds a project-first component canvas. Named workers publish genuine component checkpoints; bounded source-linked update receipts drive contributor cursors and construction accents at real DOM anchors. Source-identical metadata and check updates retain the active preview. No fabricated intermediate source, native mouse tracking, server-side execution or automatic public deployment."
       }
     }
   }

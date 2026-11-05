@@ -2,14 +2,14 @@
 
 A small crew for real work. One flight deck stays in the chat while the host builds: actual source files, crew contributions, checks, and synthesis arrive in that same card. ProjectForty2's MCP service holds the latest supplied state; the host's tools perform the work.
 
-This is the `0.5.0` plugin package, separate from the website's release numbering. It adds actual project files and revision-bound reported checks to the existing one-card protocol. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
+This is the `0.6.0` plugin workflow, separate from the website's release numbering. It adds explicit component ownership and source-bound checkpoint receipts to the existing one-card protocol. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
 
 ## What you get
 
 - **Deploy the drive:** a reusable skill that turns the user's task into useful workstreams, includes a skeptic, and reconciles the work into one deliverable.
 - **A bounded crew:** 3–7 members including the lead, at most two delegation levels. Generic presets become task-specific output contracts.
 - **One inspectable flight deck:** `build_crew` opens the card once; data-only `show_flight` calls update the same flight. The mounted card reads the latest snapshot. Evidence links and unresolved questions stay with the contributions.
-- **Actual project revisions:** data-only `update_project` receives the selected source files at real milestones, with crew attribution and reported checks bound to the submitted content. Inspect source and an isolated preview where the host supports it. This does not run a server-side build or deploy the project.
+- **Actual component checkpoints:** data-only `update_project` receives the selected files as each useful component arrives, with crew attribution and reported checks bound to the submitted content. Component anchors connect a contributor to the real rendered region. Inspect source and an isolated preview where the host supports it. This does not run a server-side build or deploy the project.
 - **The ProjectForty2 canvas:** the website's shared cursor engine, dark drafting field, mission dock, and embedded Cormorant Garamond / DM Sans fonts, adapted to the chat frame. Engage drive uses native chat power; provider connection and private website history are separate.
 - **A useful fallback:** if the host cannot delegate, the same assistant performs clearly labeled guided passes. If embedded UI is unavailable, the answer remains useful in text.
 
@@ -27,7 +27,7 @@ After installation, invoke Heart of Gold in a new chat, or invoke its `deploy-dr
 
 > Plan a crew for this task. Show the workstreams first and wait before doing the work.
 
-> Build a small task-board website with add, complete, filter, and remove controls. Use the available host file and browser tools, show genuine source revisions in this deck, and include a reviewer. Do not publish it publicly.
+> Build a small task-board website with add, complete, filter, and remove controls. Show the real shell first, then each worker's usable component as it arrives while the others work. Include a reviewer and test the result with available browser tools. Do not publish it publicly.
 
 The primary action in the widget sends a follow-up request to the host. It is not an independent server job. Work starts when the host actually starts it, and worker completion appears when the host reports the result. These are meaningful milestones, not live token streams or independently observed telemetry. Follow-up work and results stay in the same deck; the final chat response can be brief.
 
@@ -43,13 +43,17 @@ Motion also pauses when the connection or refresh fails, the flight expires, or 
 
 Temporary state can expire or disappear on a server restart. The deck should say that its connection is unavailable and preserve any already displayed result, rather than marking unfinished work complete or silently creating another card. The chat can still carry the requested deliverable. A new card is appropriate for a new mission or an explicit request to reopen one.
 
-## Build, then show the actual files
+## Build components where you can see them
 
 The host creates and edits the artifact with its available tools. The lead reports real working member status, then sends the complete current selection of files through `update_project` at useful milestones. Each file names its contributing crew member; native child attribution must match the worker ID already reported by the host. An actual source revision may be supplied when known. A file list is not a workspace connection: the plugin cannot browse the user's repository or discover files itself.
 
-The service computes file hashes, a canonical project digest, and a change summary against the immediately preceding file set. Check records are bound to that submitted project revision and digest. Their outcomes remain host-reported: a syntax pass, source inspection, and a browser interaction are different evidence. The host should actually exercise the requested behavior and mark unexecuted checks `not_run`. Do not manufacture intermediate edits to make a finished artifact look live.
+The workflow starts with a real runnable shell. Builders own small regions and behaviors, such as task entry, task list, or filters, with agreed interfaces and stable `data-hog-component` anchors. They return an early usable checkpoint before finishing their whole assignment. The lead integrates and publishes each actual arrival while other work continues, then reports real review corrections. If the host only returns final worker results, smaller tasks provide the checkpoints. Guided passes do the same work serially and stay labeled as one assistant. A finished app must never be hidden and gradually revealed as a fictional live build.
 
-Projects contain 1–24 supported text files, up to 64 KiB each and 256 KiB including project metadata. HTML, CSS, JavaScript, Markdown, JSON, and plain text are supported source types. The latest project replaces the previous temporary file set; old source versions are not a retained history. Keep the durable artifact in the host workspace or another user-controlled location. The plugin does not install dependencies, run server-side code, fetch repository links, or publish a site.
+The component manifest contains up to 12 IDs, labels, contributors, and included file-path mappings. The host declares changed component IDs; the service accepts events only when a declared component maps to an actually changed source hash. A component cursor or highlight can then point to its real rendered anchor. Shared-file changes still require honest attribution: a new hash is not independent proof that every mapped region changed. If several arrivals occur between reads, display the current state together instead of inventing intermediate steps. This is milestone reporting with host and polling latency, not keystroke streaming.
+
+The service computes file hashes, a canonical project digest, and a change summary against the immediately preceding file set. Check records are bound to that submitted project revision and digest. Their outcomes remain host-reported: a syntax pass, source inspection, and a browser interaction are different evidence. The host should actually exercise the requested behavior and mark unexecuted checks `not_run`. A short ledger retains at most 64 component-change metadata receipts within 32 KiB, so reconnecting does not require replaying already seen activity; it contains no previous source contents.
+
+Projects contain 1–24 supported text files, up to 64 KiB each and 256 KiB including component/event metadata. HTML, CSS, JavaScript, Markdown, JSON, and plain text are supported source types. The latest project replaces the previous temporary file set; old source versions are not a retained history. Keep the durable artifact in the host workspace or another user-controlled location. The plugin does not install dependencies, run server-side code, fetch repository links, or publish a site.
 
 Preview runs selected supported source in an isolated browser frame where available. Nested frames require an explicit origin allowlist in ChatGPT; the embedded page also needs its own network policy. A source-only view remains useful when the current host cannot run that preview. Preview permission does not authorize public deployment. [Official iframe guidance](https://developers.openai.com/plugins/build/chatgpt-ui#content-security-policy-csp), [embedded-page security](https://developers.openai.com/plugins/guides/security-privacy#network-access).
 
@@ -98,7 +102,7 @@ Official guidance explains that imported MCP declarations can produce a Desktop-
 2. Build an account-specific archive from the repository root, replacing the example argument with your registered app ID:
 
    ```sh
-   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.5.0
+   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.6.0
    ```
 
 3. In ChatGPT **Plugins → + → Upload archive**, upload this private ZIP, or use the existing personal plugin's update action. Inspect the imported details and select **Install plugin** when available. Start setup or a new Work chat and verify the skill and connected tools. Account/workspace policies still apply.
@@ -111,9 +115,9 @@ The public directory is the intended simpler installation path after review. The
 
 ## What leaves the chat
 
-Tool arguments contain the mission, constraints, member assignments, result summaries, and any evidence URLs the host sends. Artifact updates additionally contain selected paths and exact source text, attribution, reported checks or commands, and optional source revision/project links. ProjectForty2 keeps the latest supplied snapshot and project in bounded temporary server memory so one mounted deck can read updates. This is server state, not a stateless transformation. It is not written to a durable flight database, and service restart loses it. The plugin does not call another model. Hosting infrastructure can still process ordinary request metadata; the chat provider also has its own retention rules. Do not describe the workflow as staying entirely inside the chat.
+Tool arguments contain the mission, constraints, member assignments, result summaries, and any evidence URLs the host sends. Artifact updates additionally contain selected paths and exact source text, file/component attribution, declared changed component IDs, reported checks or commands, and optional source revision/project links. ProjectForty2 keeps the latest supplied snapshot and project, with bounded component-event metadata, in temporary server memory so one mounted deck can read updates. This is server state, not a stateless transformation. It is not written to a durable flight database, and service restart loses it. The plugin does not call another model. Hosting infrastructure can still process ordinary request metadata; the chat provider also has its own retention rules. Do not describe the workflow as staying entirely inside the chat.
 
-Access expires two hours after creation, without renewal by reads or updates. Expired entries are removed on access or the next cleanup sweep, scheduled every 60 seconds. Only the latest snapshot and project are retained, with a maximum of 384 KiB per combined flight, 128 flights, and 8 MiB per server process. Capacity rejects new/oversized work instead of evicting an active flight.
+Access expires two hours after creation, without renewal by reads or updates. Expired entries are removed on access or the next cleanup sweep, scheduled every 60 seconds. Only the latest snapshot/source and up to 64 component metadata receipts are retained, with a maximum of 384 KiB per combined flight, 128 flights, and 8 MiB per server process. The 12 component mappings and event receipts count toward the existing project limit. Capacity rejects new/oversized work instead of evicting an active flight.
 
 Send only scoped summaries and selected project files, not credentials or unrelated private attachments. A one-time disclosure explains source sharing before the build workflow uploads it; an already authorized project connection needs no redundant confirmation. Users who ask for no remote sharing get the host-only workflow without MCP calls. Flight access uses private capabilities returned for that flight; these are not provider credentials or a login account. Keep them out of public links, preview code, and delegated-worker prompts. The plugin cannot access private website runs. See the [plugin privacy policy](https://projectforty2.ai/heartofgold/plugin-privacy.html) for the current retention bounds.
 
@@ -137,7 +141,7 @@ The portable package uses the Agent Plugins `1.0.0` schemas, with OpenAI listing
 Create a release archive from the repository root with Node 22+ and Python 3 (standard library only):
 
 ```sh
-node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.5.0.zip
+node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.6.0.zip
 ```
 
 The ZIP has `plugin.json` and `mcp.json` directly at its root, alongside `LICENSE`, `skills/`, and `assets/`. It excludes the website, UI source/build output, marketplace catalog, dependencies, and local data. The packager rejects symlinks, unreviewed file types, missing referenced assets, and common credential/private-path patterns; it verifies the archive and prints its SHA-256. Identical source files produce identical ZIP bytes. These checks do not replace source review or the platform's own validation. Creating the ZIP does not install, upload, submit, or approve it.

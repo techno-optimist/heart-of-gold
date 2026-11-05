@@ -10,7 +10,7 @@ Don't Panic. Bring a towel. Check the work.
 
 | Flight mode | What happens |
 | --- | --- |
-| **Chat plugin — preview** | Build with the host’s available tools and inspect actual source revisions, crew attribution, and reported checks in one deck. Native workers when available; labeled passes otherwise. No provider key required. |
+| **Chat plugin — preview** | Build with the host’s available tools and watch genuine component checkpoints arrive, with source, crew attribution, and reported checks in one deck. Native workers when available; labeled passes otherwise. No provider key required. |
 | **Hosted API crew — v0.2** | Connect your own OpenAI, Anthropic, or xAI API key, choose an account-listed model, and run a bounded text mission. The server coordinates real provider calls. |
 | **Local Codex** | Your installed Codex CLI runs bounded tasks in read-only sessions. The CLI manages its authentication. |
 | **Flight simulator** | A scripted demonstration exercises delegation and the interface. No model calls; output is demonstration content. |
@@ -24,7 +24,7 @@ The standalone alpha produces text deliverables. The chat plugin uses the tools 
 
 ## Deploy the drive in chat
 
-The [Heart of Gold plugin](docs/plugin.md) keeps one flight deck in the chat while the crew builds. The host creates actual artifacts with its available tools, then sends selected source files, member attribution, and check results at genuine milestones. Inspect those files and an isolated preview where supported; cursor movement is not the evidence of progress. ProjectForty2 holds the latest flight and selected project temporarily in server memory. Access expires after two hours, with no durable source history or automatic public deployment. Host file, browser, and delegation capabilities still apply. See the [plugin privacy notice](https://projectforty2.ai/heartofgold/plugin-privacy.html).
+The [Heart of Gold plugin](docs/plugin.md) keeps one flight deck in the chat while the crew builds. The host publishes a real shell, assigns small components, and integrates each usable contribution as it arrives while other work continues. Selected source files, component ownership, and actual check results update that same deck; component anchors connect contributors to the rendered work. Inspect the files and isolated preview where supported. Updates follow real checkpoints, with host and polling latency. ProjectForty2 holds the latest flight/source and at most 64 component metadata receipts temporarily in server memory. Access expires after two hours, with no durable source history or automatic public deployment. Host file, browser, and delegation capabilities still apply. See the [plugin privacy notice](https://projectforty2.ai/heartofgold/plugin-privacy.html).
 
 [Try the visual builder](https://projectforty2.ai/heartofgold/plugin-preview/) · [Install and use](docs/plugin.md) · [Public review checklist](docs/plugin-review.md)
 

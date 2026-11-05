@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { Script } from 'node:vm';
 import { normalizeProject, resolveProjectPath, buildPreviewDocument, changedProjectFiles, safeProjectLink } from '../plugins/heart-of-gold/ui/project-preview.mjs';
+import { componentEventsSince, boundedComponentRects, sanitizedComponentGeometry, projectRenderKey, installComponentProbe } from '../plugins/heart-of-gold/ui/component-canvas.mjs';
 
 const fixture = () => ({ revision: 2, title: 'Authored test project', entrypoint: 'index.html', files: [
   { path: 'index.html', memberId: 'builder', content: '<!doctype html><html><head><link rel="stylesheet" href="./styles/site.css"></head><body><button id="add">Add item</button><output id="count">0</output><script src="scripts/app.js"></script></body></html>' },
@@ -34,7 +35,8 @@ test('preview is network-restricted and cannot receive flight authority', async 
   const ui = await readFile(new URL('../plugins/heart-of-gold/ui/project-preview.mjs', import.meta.url), 'utf8');
   assert.match(ui, /setAttribute\('sandbox', 'allow-scripts allow-forms'\)/);
   assert.doesNotMatch(ui, /allow-same-origin|allow-top-navigation|allow-popups/);
-  assert.match(ui, /event\.source !== frame\.contentWindow/);
+  assert.match(ui, /event\.source === frame\.element\.contentWindow/);
+  assert.match(ui, /event\.data\.nonce !== record\.nonce/);
 });
 
 test('external dependencies fail visibly without fetching substitutes', () => {
@@ -89,4 +91,67 @@ test('inert project template scripts never become executable JavaScript', () => 
   const project = normalizeProject({ revision: 1, entrypoint: 'index.html', files: [{ path: 'index.html', memberId: 'builder', content: '<html><head></head><body><script type="text/template"><p>A template, not JavaScript.</p></script></body></html>' }] });
   const output = buildPreviewDocument(project, 'template-check');
   assert.match(output.html, /<script type="text\/template" data-project-file="index.html"><p>A template, not JavaScript\.<\/p><\/script>/);
+});
+
+test('component events baseline history and animate only newly observed source receipts', () => {
+  const event = seq => ({ seq, kind: 'component.updated', componentId: 'task-entry', projectRevision: seq });
+  const hydration = componentEventsSince([event(8), event(9)], 0, true);
+  assert.deepEqual(hydration, { events: [], lastSeq: 9 });
+  assert.deepEqual(componentEventsSince([event(8), event(9)], hydration.lastSeq), { events: [], lastSeq: 9 });
+  const live = componentEventsSince([null, event(9), event(10), event(11)], hydration.lastSeq);
+  assert.deepEqual(live.events.map(item => item.seq), [10, 11]);
+  assert.equal(live.lastSeq, 11);
+  assert.deepEqual(componentEventsSince([event(1)], 0, false).events, [event(1)], 'the first project after an established live baseline is a new receipt');
+});
+
+test('component geometry accepts only bounded visible rectangles for known anchors', () => {
+  const geometry = boundedComponentRects({ rects: [null, 1, { id: 'unknown', x: 1, y: 1, width: 30, height: 30 }, { id: 'entry', x: -10, y: 10, width: 100, height: 80 }, { id: 'list', x: 250, y: 180, width: 150, height: 80 }, { id: 'bad', x: NaN, y: 0, width: 2, height: 2 }] }, new Set(['entry', 'list', 'bad']), 300, 200);
+  assert.deepEqual([...geometry], [['entry', { x: 0, y: 10, width: 90, height: 80 }], ['list', { x: 250, y: 180, width: 50, height: 20 }]]);
+});
+
+test('offscreen component anchors are not reported as missing Source fallbacks', () => {
+  const ids = new Set(['filters', 'entry']);
+  const offscreen = sanitizedComponentGeometry({ rects: [{ id: 'filters', x: 10, y: 600, width: 200, height: 100 }], missing: [] }, ids, 640, 360);
+  assert.deepEqual(offscreen, { rects: [], missing: [] });
+  const absent = sanitizedComponentGeometry({ rects: [], missing: ['entry', 'unknown', null, 'entry'], arbitrary: 'never retained' }, ids, 640, 360);
+  assert.deepEqual(absent, { rects: [], missing: ['entry'] });
+});
+
+test('preview identity survives metadata/check changes and follows the effective HTML entrypoint', () => {
+  const project = normalizeProject(fixture());
+  project.sourceDigest = 'a'.repeat(64);
+  const key = projectRenderKey(project);
+  assert.equal(projectRenderKey({ ...project, revision: 9, checks: [{ name: 'New check', status: 'passed' }], components: [{ id: 'entry' }] }), key);
+  assert.notEqual(projectRenderKey({ ...project, entrypoint: 'other.html' }), key);
+  const implicit = { ...project, entrypoint: '', files: [{ path: 'one.html', content: 'one' }, { path: 'two.html', content: 'two' }] };
+  assert.notEqual(projectRenderKey(implicit), projectRenderKey({ ...implicit, files: [...implicit.files].reverse() }));
+});
+
+test('component preview instrumentation is self-contained and does not replay events by default', () => {
+  const project = normalizeProject({ ...fixture(), components: [{ id: 'task-entry', label: 'Task entry', memberId: 'builder', filePaths: ['index.html'] }], events: [{ id: 'receipt-2', seq: 2, kind: 'component.updated', componentId: 'task-entry', memberId: 'builder', changedPaths: ['index.html'] }] });
+  const initial = buildPreviewDocument(project, 'component-check');
+  assert.ok(initial.html.includes('"ids":["task-entry"],"arrivalIds":[]'));
+  assert.ok(initial.html.includes("event.source !== parent"));
+  const observed = buildPreviewDocument(project, 'component-check', new Map(), { arrivalIds: ['task-entry'], motionAllowed: true });
+  assert.ok(observed.html.includes('"arrivalIds":["task-entry"]'));
+  for (const script of observed.html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) assert.doesNotThrow(() => new Script(script[1]));
+});
+
+test('hidden pending preview reports readiness even when animation frames never run', () => {
+  const listeners = new Map(), messages = [];
+  const context = {
+    parent: { postMessage: message => messages.push(message) },
+    document: { hidden: false, documentElement: {}, querySelectorAll: () => [], addEventListener: () => {} },
+    matchMedia: () => ({ matches: false, addEventListener: () => {} }),
+    addEventListener: (name, callback) => listeners.set(name, callback),
+    requestAnimationFrame: () => 1,
+    setTimeout: () => 1,
+    innerWidth: 640, innerHeight: 360,
+    MutationObserver: class { observe() {} },
+    ResizeObserver: class { observe() {} unobserve() {} },
+  };
+  new Script(`(${installComponentProbe.toString()})({nonce:'hidden-frame',ids:[],arrivalIds:[]});`).runInNewContext(context);
+  listeners.get('DOMContentLoaded')();
+  assert.ok(messages.some(message => message.type === 'hog:project-ready' && message.nonce === 'hidden-frame'));
+  assert.ok(messages.some(message => message.type === 'hog:component-geometry'));
 });

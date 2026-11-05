@@ -1,4 +1,5 @@
 /** Project files are host-supplied artifacts, never synthesized by the UI. */
+import { COMPONENT_ID, installComponentProbe, createComponentCanvas, componentEventsSince, projectRenderKey, sanitizedComponentGeometry } from './component-canvas.mjs';
 export const PREVIEW_URL = 'https://projectforty2.ai/heartofgold/project-preview.html';
 const MAX_FILE_BYTES = 65536;
 const MAX_PROJECT_BYTES = 262144;
@@ -24,7 +25,9 @@ export function normalizeProject(input) {
   });
   const changes = (Array.isArray(input.changes) ? input.changes : []).slice(0, 48).map(change => ({ path: clip(change.path, 240), operation: ['added', 'modified', 'deleted'].includes(change.operation) ? change.operation : 'modified', memberId: clip(change.memberId, 80), summary: clip(change.summary, 500) }));
   const checks = (Array.isArray(input.checks) ? input.checks : []).slice(0, 24).map(check => ({ name: clip(check.name, 160), status: ['passed', 'failed', 'not_run'].includes(check.status) ? check.status : 'not_run', details: clip(check.details, 2000), memberId: clip(check.memberId, 80), command: clip(check.command, 500), sourceDigest: clip(check.sourceDigest, 64), projectRevision: check.projectRevision }));
-  return { schemaVersion: 1, title: clip(input.title, 160) || 'The project', entrypoint: clip(input.entrypoint, 240), revision: input.revision, basedOnFlightRevision: input.basedOnFlightRevision, updatedAt: clip(input.updatedAt, 80), sourceRevision: clip(input.sourceRevision, 160), sourceDigest: clip(input.sourceDigest, 64), links: { repository: safeProjectLink(input.links?.repository), preview: safeProjectLink(input.links?.preview) }, files, changes, checks };
+  const components = (Array.isArray(input.components) ? input.components : []).slice(0, 12).filter(component => COMPONENT_ID.test(component.id)).map(component => ({ id: component.id, label: clip(component.label, 120), memberId: clip(component.memberId, 80), workerId: clip(component.workerId, 160), filePaths: (Array.isArray(component.filePaths) ? component.filePaths : []).slice(0, 24).map(path => clip(path, 240)), sourceDigest: clip(component.sourceDigest, 64) }));
+  const events = (Array.isArray(input.events) ? input.events : []).slice(-64).filter(event => event.kind === 'component.updated' && Number.isInteger(event.seq) && event.seq > 0 && COMPONENT_ID.test(event.componentId)).map(event => ({ id: clip(event.id, 160), seq: event.seq, kind: 'component.updated', projectRevision: event.projectRevision, flightRevision: event.flightRevision, at: clip(event.at, 80), componentId: event.componentId, memberId: clip(event.memberId, 80), workerId: clip(event.workerId, 160), changedPaths: (Array.isArray(event.changedPaths) ? event.changedPaths : []).slice(0, 24).map(path => clip(path, 240)), sourceDigest: clip(event.sourceDigest, 64) }));
+  return { schemaVersion: 1, title: clip(input.title, 160) || 'The project', entrypoint: clip(input.entrypoint, 240), revision: input.revision, basedOnFlightRevision: input.basedOnFlightRevision, updatedAt: clip(input.updatedAt, 80), sourceRevision: clip(input.sourceRevision, 160), sourceDigest: clip(input.sourceDigest, 64), links: { repository: safeProjectLink(input.links?.repository), preview: safeProjectLink(input.links?.preview) }, files, changes, checks, components, events };
 }
 export function resolveProjectPath(reference, fromPath) {
   if (typeof reference !== 'string' || /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(reference)) return null;
@@ -35,7 +38,7 @@ const attribute = (attributes, name) => {
   return match ? match[1] ?? match[2] ?? match[3] : null;
 };
 const inertClose = (text, tag) => text.replace(new RegExp(`</${tag}`, 'gi'), `<\\/${tag}`);
-export function buildPreviewDocument(project, nonce, drafts = new Map()) {
+export function buildPreviewDocument(project, nonce, drafts = new Map(), options = {}) {
   const files = new Map(project.files.map(file => [file.path, { ...file, content: drafts.has(file.path) ? drafts.get(file.path) : file.content }]));
   let totalBytes = 0;
   for (const file of files.values()) { const bytes = encoder.encode(file.content).byteLength; totalBytes += bytes; if (bytes > MAX_FILE_BYTES || totalBytes > MAX_PROJECT_BYTES) throw new Error('The local draft exceeds this project’s preview limits.'); }
@@ -83,7 +86,8 @@ export function buildPreviewDocument(project, nonce, drafts = new Map()) {
     html = /<\/body\s*>/i.test(html) ? html.replace(/<\/body\s*>/i, match => `${deferred}${match}`) : `${html}\n${deferred}`;
   }
   const policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
-  const instrumentation = `<script>(()=>{const nonce=${JSON.stringify(nonce).replace(/</g, '\\u003c')};const send=(type,message)=>parent.postMessage({type,nonce,message},'*');addEventListener('error',e=>send('hog:project-error',String(e.message||'Preview script error').slice(0,300)));addEventListener('unhandledrejection',e=>send('hog:project-error',String(e.reason?.message||e.reason||'Preview promise rejected').slice(0,300)));addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('a[href]').forEach(a=>a.addEventListener('click',e=>{if(!a.getAttribute('href')?.startsWith('#'))e.preventDefault()}));document.addEventListener('submit',e=>e.preventDefault());send('hog:project-ready')},{once:true})})();<\/script>`;
+  const probeConfig = { nonce, ids: (project.components || []).map(component => component.id), arrivalIds: options.arrivalIds || [], motionAllowed: options.motionAllowed !== false };
+  const instrumentation = `<script>(${installComponentProbe.toString()})(${JSON.stringify(probeConfig).replace(/</g, '\\u003c')});<\/script>`;
   const head = `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${escapeHTML(policy)}"><meta name="viewport" content="width=device-width, initial-scale=1">${instrumentation}`;
   if (/<head\b[^>]*>/i.test(html)) html = html.replace(/<head\b[^>]*>/i, match => `${match}${head}`);
   else html = `<!doctype html><html><head>${head}</head><body>${html}</body></html>`;
@@ -95,11 +99,15 @@ export function changedProjectFiles(project, drafts) {
 
 const make = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
 const PALETTE = ['#e0a43a', '#a3c4ba', '#bbaed1', '#d6aa8c', '#b6c8d8', '#cebc88', '#c7a3ae'];
-export function createProjectWorkspace({ root, onInspectMember, onRequestEdits, openLink }) {
-  let project = null, members = [], selectedPath = '', mode = 'preview', draftBaseRevision = null, loadedRevision = null, frame = null, nonce = null, timer = null, sending = false, runningDraft = false, canSend = false, previewHadError = false;
+export function createProjectWorkspace({ root, onInspectMember, onRequestEdits, openLink, onToggleMotion }) {
+  let project = null, members = [], selectedPath = '', mode = 'preview', draftBaseRevision = null, activeFrame = null, pendingFrame = null, sending = false, runningDraft = false, canSend = false, lastSeq = 0, motionPaused = true, userPaused = false, motionAvailable = false;
   const drafts = new Map();
   const get = id => root.querySelector(`#${id}`);
   const fileList = get('project-files'), editor = get('project-editor'), changesList = get('project-changes-list');
+  const frameSlot = get('project-preview-frame-slot'), retiredFrames = new Set();
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const canvas = createComponentCanvas({ layer: get('component-overlay'), onInspectMember, onSource: selectFile });
+  const canAnimate = () => !motionPaused && !reduced.matches && !document.hidden && mode === 'preview';
   function status(text, error = false) { get('project-preview-status').textContent = text; get('project-preview-status').dataset.error = String(error); }
   function selectedFile() { return project?.files.find(file => file.path === selectedPath); }
   function renderDraftControls() {
@@ -140,41 +148,81 @@ export function createProjectWorkspace({ root, onInspectMember, onRequestEdits, 
   }
   function selectFile(path) { if (!project?.files.some(file => file.path === path)) return; selectedPath = path; renderFiles(); renderSource(); if (mode !== 'source') setMode('source'); }
   function setMode(next) {
-    mode = next;
+    mode = next; root.dataset.projectMode = next;
     for (const button of root.querySelectorAll('[data-project-mode]')) { const active = button.dataset.projectMode === next; button.setAttribute('aria-selected', String(active)); button.tabIndex = active ? 0 : -1; }
     for (const panel of root.querySelectorAll('[data-project-panel]')) panel.hidden = panel.dataset.projectPanel !== next;
-    if (next === 'preview' && project && loadedRevision == null) runPreview(false);
+    syncMotion();
+    if (next === 'preview' && project && !activeFrame && !pendingFrame) runPreview(false);
   }
-  function stopFrame() { clearTimeout(timer); timer = null; if (frame) frame.remove(); frame = null; nonce = null; }
-  function runPreview(useDraft) {
+  function removeFrame(record) { if (!record) return; clearTimeout(record.timer); record.element.remove(); }
+  function stopFrames() { removeFrame(activeFrame); removeFrame(pendingFrame); activeFrame = null; pendingFrame = null; for (const element of retiredFrames) element.remove(); retiredFrames.clear(); canvas.clear(); }
+  function sendToFrame(record, type, detail = {}) { record?.element.contentWindow?.postMessage({ type, nonce: record.nonce, ...detail }, '*'); }
+  function syncMotion() {
+    const allowed = canAnimate(); canvas.setPaused(!allowed);
+    root.dataset.motionPaused = String(!allowed);
+    get('component-live').textContent = !motionAvailable ? 'Updates unavailable' : userPaused ? 'Motion paused' : reduced.matches ? 'Component updates' : 'Live component updates';
+    get('component-pause').textContent = userPaused ? 'Resume motion' : 'Pause motion';
+    get('component-pause').setAttribute('aria-pressed', String(userPaused));
+    for (const record of [activeFrame, pendingFrame]) sendToFrame(record, 'hog:component-motion', { allowed });
+  }
+  function useGeometry(record) {
+    if (!record?.geometry || record !== activeFrame) return;
+    const missing = canvas.geometry(record.geometry, frameSlot.clientWidth, frameSlot.clientHeight);
+    get('component-missing').hidden = !missing.length;
+    get('component-missing').textContent = `${missing.length} ${missing.length === 1 ? 'component' : 'components'} in Source ↗`;
+    get('component-missing').dataset.path = missing[0]?.filePaths.find(path => project.files.some(file => file.path === path)) || '';
+  }
+  function updateFrameRegistry(record) {
+    if (!record || !project || record.renderKey !== projectRenderKey(project) || record.draft) return;
+    record.project = project;
+    sendToFrame(record, 'hog:component-registry', { ids: project.components.map(component => component.id) });
+    if (record === activeFrame) { canvas.update(project.components, members); useGeometry(record); }
+  }
+  function promoteFrame(record) {
+    if (record !== pendingFrame) return;
+    clearTimeout(record.timer); record.ready = true;
+    const previous = activeFrame;
+    activeFrame = record; pendingFrame = null; runningDraft = record.draft;
+    record.element.classList.remove('is-pending'); record.element.removeAttribute('aria-hidden'); record.element.removeAttribute('inert'); record.element.removeAttribute('tabindex');
+    if (previous) { previous.element.style.pointerEvents = 'none'; retiredFrames.add(previous.element); setTimeout(() => { previous.element.remove(); retiredFrames.delete(previous.element); }, canAnimate() ? 180 : 0); }
+    canvas.update(record.draft ? [] : record.project.components, members, record.draft || !canAnimate() ? [] : record.events);
+    useGeometry(record); syncMotion();
+    if (record.error) status(`Preview error: ${record.error}`, true);
+    else status(record.draft ? 'Local draft preview · not applied to the project' : `Rendered reported files · revision ${record.project.revision}`);
+  }
+  function runPreview(useDraft, events = []) {
     if (!project) return;
-    stopFrame();
-    previewHadError = false;
-    nonce = globalThis.crypto?.randomUUID?.() || `preview-${Date.now()}-${Math.random()}`;
+    const combinedEvents = useDraft ? [] : [...new Map([...(pendingFrame?.events || []), ...events].map(event => [event.seq, event])).values()];
+    removeFrame(pendingFrame); pendingFrame = null;
+    const nonce = globalThis.crypto?.randomUUID?.() || `preview-${Date.now()}-${Math.random()}`;
     let built;
-    try { built = buildPreviewDocument(project, nonce, useDraft ? drafts : new Map()); }
-    catch (error) { loadedRevision = project.revision; status(error.message, true); return; }
-    runningDraft = useDraft; loadedRevision = project.revision;
+    try { built = buildPreviewDocument(project, nonce, useDraft ? drafts : new Map(), { motionAllowed: canAnimate(), arrivalIds: useDraft || !canAnimate() ? [] : [...new Set(combinedEvents.map(event => event.componentId))] }); }
+    catch (error) { status(error.message, true); return; }
     get('project-preview-warning').textContent = built.warnings.join(' ');
     status(useDraft ? 'Opening local draft…' : `Opening reported project · revision ${project.revision}…`);
-    frame = make('iframe', 'project-preview-frame'); frame.title = useDraft ? 'Local project draft preview' : `${project.title} · reported project preview`;
+    const frame = make('iframe', 'project-preview-frame is-pending'); frame.title = useDraft ? 'Local project draft preview' : `${project.title} · reported project preview`;
     frame.setAttribute('sandbox', 'allow-scripts allow-forms'); frame.setAttribute('referrerpolicy', 'no-referrer'); frame.setAttribute('allow', "camera 'none'; microphone 'none'; geolocation 'none'; clipboard-read 'none'; clipboard-write 'none'");
+    frame.setAttribute('aria-hidden', 'true');
+    frame.setAttribute('inert', ''); frame.setAttribute('tabindex', '-1');
     const local = ['localhost', '127.0.0.1'].includes(window.location.hostname);
     frame.src = local ? new URL('/heartofgold/project-preview.html', window.location.origin).href : PREVIEW_URL;
-    frame.dataset.previewDocument = ''; // The document is held in closure, never attributes or URLs.
-    let sent = false;
-    frame.hogSendDocument = () => { if (sent || !frame?.contentWindow) return; sent = true; frame.contentWindow.postMessage({ type: 'hog:render-project', nonce, html: built.html }, '*'); };
-    get('project-preview-frame-slot').append(frame);
-    timer = setTimeout(() => status('This host did not open the sandbox preview. Source and Changes remain available.', true), 12000);
+    const record = { element: frame, nonce, project, renderKey: projectRenderKey(project), draft: useDraft, events: combinedEvents, sent: false, html: built.html, geometry: null, error: null, timer: null };
+    pendingFrame = record; frameSlot.insertBefore(frame, get('component-overlay'));
+    record.timer = setTimeout(() => { if (pendingFrame !== record) return; removeFrame(record); pendingFrame = null; status(activeFrame ? `New preview unavailable. Showing revision ${activeFrame.project.revision}; latest Source is available.` : 'This host did not open the sandbox preview. Source and Changes remain available.', true); }, 12000);
   }
   function onMessage(event) {
-    if (!frame || event.source !== frame.contentWindow || !event.data || typeof event.data !== 'object') return;
-    if (event.data.type === 'hog:preview-ready') { frame.hogSendDocument?.(); return; }
-    if (event.data.nonce !== nonce) return;
-    if (event.data.type === 'hog:project-ready') { clearTimeout(timer); if (!previewHadError) status(runningDraft ? 'Local draft preview · not applied to the project' : `Rendered reported files · revision ${loadedRevision}`); }
-    else if (event.data.type === 'hog:project-error') { clearTimeout(timer); previewHadError = true; status(`Preview error: ${clip(event.data.message, 300) || 'The submitted code reported an error.'}`, true); }
+    const record = [pendingFrame, activeFrame].find(frame => frame && event.source === frame.element.contentWindow);
+    if (!record || !event.data || typeof event.data !== 'object') return;
+    if (event.data.type === 'hog:preview-ready') { if (!record.sent) { record.sent = true; sendToFrame(record, 'hog:render-project', { html: record.html }); record.html = ''; } return; }
+    if (event.data.nonce !== record.nonce) return;
+    if (event.data.type === 'hog:project-ready') promoteFrame(record);
+    else if (event.data.type === 'hog:component-geometry') { record.geometry = sanitizedComponentGeometry(event.data, new Set(record.project.components.map(component => component.id)), frameSlot.clientWidth, frameSlot.clientHeight); if (record === activeFrame) useGeometry(record); }
+    else if (event.data.type === 'hog:project-error') { record.error = clip(event.data.message, 300) || 'The submitted code reported an error.'; if (record === activeFrame) status(`Preview error: ${record.error}`, true); }
   }
   window.addEventListener('message', onMessage);
+  reduced.addEventListener('change', syncMotion);
+  get('component-pause').addEventListener('click', onToggleMotion);
+  get('component-missing').addEventListener('click', () => { const path = get('component-missing').dataset.path; if (path) selectFile(path); else setMode('source'); });
   for (const button of root.querySelectorAll('[data-project-mode]')) {
     button.addEventListener('click', () => setMode(button.dataset.projectMode));
     button.addEventListener('keydown', event => { if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return; event.preventDefault(); const tabs = [...root.querySelectorAll('[data-project-mode]')], index = tabs.indexOf(button); const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length; setMode(tabs[next].dataset.projectMode); tabs[next].focus(); });
@@ -192,10 +240,12 @@ export function createProjectWorkspace({ root, onInspectMember, onRequestEdits, 
   get('project-repository').addEventListener('click', () => { if (project?.links.repository) openLink(project.links.repository); });
   get('project-external-preview').addEventListener('click', () => { if (project?.links.preview) openLink(project.links.preview); });
   return {
-    update(next, nextMembers = [], available = false) {
+    update(next, nextMembers = [], available = false, options = {}) {
       members = nextMembers; canSend = available;
-      if (!next) { root.hidden = true; stopFrame(); project = null; return; }
-      const changed = project?.revision !== next.revision || project?.sourceDigest !== next.sourceDigest;
+      if (!next) { root.hidden = true; stopFrames(); project = null; return; }
+      const changed = !project || projectRenderKey(project) !== projectRenderKey(next);
+      const receipt = componentEventsSince(next.events, lastSeq, options.baseline === true); lastSeq = receipt.lastSeq;
+      const arrivals = canAnimate() && !drafts.size ? receipt.events : [];
       project = next; root.hidden = false;
       if (!project.files.some(file => file.path === selectedPath)) selectedPath = project.entrypoint || project.files[0]?.path || '';
       for (const [path, content] of drafts) if (project.files.find(file => file.path === path)?.content === content) drafts.delete(path);
@@ -209,10 +259,12 @@ export function createProjectWorkspace({ root, onInspectMember, onRequestEdits, 
       if (!project.changes.length) changesList.append(make('li', 'muted', 'No changed files in this revision.'));
       get('project-checks').replaceChildren(...project.checks.map(check => { const row = make('li', 'project-check'); row.dataset.status = check.status; row.append(make('span', '', `${check.status.replace('_', ' ')} · ${check.name}`)); if (check.details) row.append(make('p', '', check.details)); if (check.command) row.append(make('code', '', check.command)); return row; }));
       get('project-checks-empty').hidden = !!project.checks.length;
-      if (changed && !drafts.size) runPreview(false);
+      if (changed && !drafts.size) runPreview(false, arrivals);
       else if (changed && drafts.size) status('A newer reported project arrived. Your local edits are preserved; run your draft or reload the reported preview.');
+      else { updateFrameRegistry(activeFrame); updateFrameRegistry(pendingFrame); }
       setMode(mode);
     },
-    destroy() { stopFrame(); window.removeEventListener('message', onMessage); },
+    setMotionState(state) { motionPaused = !!state.paused; userPaused = !!state.userPaused; motionAvailable = !!state.available; syncMotion(); },
+    destroy() { stopFrames(); canvas.destroy(); reduced.removeEventListener('change', syncMotion); window.removeEventListener('message', onMessage); },
   };
 }

@@ -11,8 +11,9 @@ const executions = new Set(['not_started', 'guided_passes', 'native_agents']);
 const clip = (value, max = 2000) => typeof value === 'string' ? value.slice(0, max) : '';
 const label = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const isPreview = window.parent === window;
-const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.5.0' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
+const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.6.0' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
 const state = { snapshot: null, selectedId: null, dirty: false, editing: false, missionEditing: false, pending: null, receivedAt: null, connected: false, canMessage: false, busy: false, sentRevision: null, revision: 0, hostContext: {}, lastMessage: '', flight: null, remoteSignature: '', sync: 'waiting', expired: false, polling: false, pollFailures: 0, unchangedReads: 0, awaitingUpdate: false, messageUnconfirmed: false, messageRevision: null, milestone: '', evidenceKey: '', questionsKey: '', tornDown: false, cached: false, authoritativeSnapshot: null, authoritativeReceivedAt: null };
+state.liveReadBaseline = false; state.projectHydration = true;
 const crewRows = new Map();
 const shipLog = [];
 let lastLoggedRevision = 0;
@@ -22,6 +23,7 @@ const swarmField = createSwarmField({ stage: $('star-map'), canvas: $('swarm-can
   if (id) selectMember(id);
 } });
 const projectWorkspace = createProjectWorkspace({ root: $('project-workspace'), onInspectMember: selectMember,
+  onToggleMotion: toggleMotion,
   onRequestEdits: edits => sendToChat('Apply my source edits to this project and update the same flight deck.', () => ({ flightId: state.flight.id, writeToken: state.flight.writeToken, expectedRevision: state.flight.revision, requestedAction: 'apply_project_edits', ...edits, progressInstructions: 'Reconcile these local edited files with the latest project revision, preserve unrelated files, and report the actual resulting complete file set through update_project on this same flight. Do not claim a test passed unless it was run. Do not create another flight deck.' }), 'project_edit'),
   openLink: url => { if (app && state.connected) app.openLink({ url }).catch(() => notify('The host could not open this project link.', 'error')); else window.open(url, '_blank', 'noopener,noreferrer'); },
 });
@@ -42,6 +44,7 @@ function persistView() {
   } catch { /* Optional host persistence must not interrupt the flight. */ }
 }
 function receiveSnapshot(input, force = false, initial = false) {
+  state.projectHydration = initial || !state.liveReadBaseline || state.cached;
   const snapshot = normalizeSnapshot(input);
   if (state.messageUnconfirmed && state.flight?.revision > state.messageRevision) {
     state.messageUnconfirmed = false; state.awaitingUpdate = false; notify('');
@@ -97,6 +100,7 @@ function syncFieldMotion() {
   const reportsUnavailable = !isPreview && (!state.connected || state.expired || state.cached || state.sync === 'reconnecting');
   const pause = motionPaused || reportsUnavailable || !!state.snapshot?.project;
   if (pause !== appliedMotionPause) { appliedMotionPause = pause; swarmField.setPaused(pause); }
+  projectWorkspace.setMotionState({ paused: motionPaused || reportsUnavailable || document.hidden, userPaused: motionPaused, available: !reportsUnavailable });
 }
 function refreshSyncLabel() {
   syncFieldMotion();
@@ -125,7 +129,7 @@ function stopPolling() { clearTimeout(pollTimer); pollTimer = undefined; }
 function schedulePoll(delay) {
   stopPolling();
   if (isPreview || state.tornDown || !state.connected || !state.flight?.readToken || !app.getHostCapabilities()?.serverTools || state.expired || document.hidden) return;
-  const wait = delay ?? (state.pollFailures ? Math.min(30000, 3000 * 2 ** state.pollFailures) : terminal() && !state.awaitingUpdate ? 15000 : Math.min(15000, 3000 * (1 + Math.floor(state.unchangedReads / 4))));
+  const wait = delay ?? (state.pollFailures ? Math.min(30000, 3000 * 2 ** state.pollFailures) : terminal() && !state.awaitingUpdate ? 15000 : 2000);
   pollTimer = setTimeout(() => { pollFlight(); }, wait);
 }
 async function pollFlight(manual = false) {
@@ -142,6 +146,7 @@ async function pollFlight(manual = false) {
     state.pollFailures = 0; state.sync = 'watching';
     if (result.structuredContent?.unchanged) { state.unchangedReads += 1; if (state.cached && state.authoritativeSnapshot) receiveSnapshot(state.authoritativeSnapshot, true); }
     else { state.unchangedReads = 0; if (state.flight.revision > revision) state.awaitingUpdate = false; receiveSnapshot(result.structuredContent); }
+    state.liveReadBaseline = true;
   } catch (error) {
     if (error.code === 'FLIGHT_UNAVAILABLE') { state.expired = true; state.sync = 'unavailable'; notify('This temporary flight has expired or is unavailable. The last report remains here; no completion has been inferred.', 'error'); }
     else { state.pollFailures += 1; state.sync = 'reconnecting'; if (manual) notify('The flight could not refresh. Your draft and last report are still here.', 'error'); }
@@ -362,7 +367,8 @@ function render() {
   $('deck').dataset.hasSnapshot = String(!!snapshot);
   $('deck').dataset.hasProject = String(!!snapshot?.project);
   $('pause-motion').hidden = !!snapshot?.project;
-  projectWorkspace.update(snapshot?.project || null, snapshot?.members || [], !state.busy && !state.messageUnconfirmed && !state.expired && !state.cached && state.connected && state.canMessage && !!state.flight?.writeToken);
+  syncFieldMotion();
+  projectWorkspace.update(snapshot?.project || null, snapshot?.members || [], !state.busy && !state.messageUnconfirmed && !state.expired && !state.cached && state.connected && state.canMessage && !!state.flight?.writeToken, { baseline: state.projectHydration });
   $('deck').dataset.phase = snapshot?.status || 'idle';
   if (!snapshot) {
     renderMap(); renderCrewList(); renderInspector(); renderShipLog();
@@ -467,11 +473,12 @@ export function crewPlan(snapshot) {
 
 for (const [button, dialog] of [['open-crew', 'crew-dialog'], ['open-log', 'log-dialog'], ['open-report', 'report-dialog'], ['open-guide', 'guide-dialog']]) $(button).addEventListener('click', () => openDialog(dialog));
 for (const button of document.querySelectorAll('[data-close-dialog]')) button.addEventListener('click', () => $(button.dataset.closeDialog)?.close());
-$('pause-motion').addEventListener('click', () => {
+function toggleMotion() {
   motionPaused = !motionPaused; syncFieldMotion();
   $('pause-motion').setAttribute('aria-pressed', String(motionPaused));
   $('pause-motion').textContent = motionPaused ? 'Resume motion' : 'Pause motion';
-});
+}
+$('pause-motion').addEventListener('click', toggleMotion);
 $('pause-motion').title = 'Pause the visualization. Crew work in the chat is unaffected.';
 $('mission-text').addEventListener('input', () => {
   if (!state.snapshot) { $('deploy').disabled = !isPreview || !$('mission-text').value.trim(); return; }
