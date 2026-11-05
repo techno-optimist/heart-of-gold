@@ -1,17 +1,24 @@
 import { App } from '@modelcontextprotocol/ext-apps';
+import { createSwarmField } from '../../../public/swarm-field.mjs';
+import { flightFieldState } from './swarm-adapter.mjs';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
-const svgEl = (tag, attributes = {}) => { const node = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, String(value)); return node; };
 const copy = (value) => JSON.parse(JSON.stringify(value));
 const states = new Set(['planned', 'working', 'waiting', 'complete', 'cancelled', 'failed']);
 const executions = new Set(['not_started', 'guided_passes', 'native_agents']);
 const clip = (value, max = 2000) => typeof value === 'string' ? value.slice(0, max) : '';
 const label = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const isPreview = window.parent === window;
-const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.2.1' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
+const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.3.0' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
 const state = { snapshot: null, selectedId: null, dirty: false, editing: false, missionEditing: false, pending: null, receivedAt: null, connected: false, canMessage: false, busy: false, sentRevision: null, revision: 0, hostContext: {}, lastMessage: '', flight: null, remoteSignature: '', sync: 'waiting', expired: false, polling: false, pollFailures: 0, unchangedReads: 0, awaitingUpdate: false, messageUnconfirmed: false, messageRevision: null, milestone: '', evidenceKey: '', questionsKey: '', tornDown: false, cached: false, authoritativeSnapshot: null, authoritativeReceivedAt: null };
-const cursorNodes = new Map();
+const crewRows = new Map();
+const shipLog = [];
+let lastLoggedRevision = 0;
+let motionPaused = false;
+const swarmField = createSwarmField({ stage: $('star-map'), canvas: $('swarm-canvas'), nodesLayer: $('map-nodes'), onSelect: id => {
+  if (id) selectMember(id);
+} });
 let displayedMission = '';
 let pollTimer;
 
@@ -33,6 +40,7 @@ function receiveSnapshot(input, force = false, initial = false) {
   if (state.messageUnconfirmed && state.flight?.revision > state.messageRevision) {
     state.messageUnconfirmed = false; state.awaitingUpdate = false; notify('');
   }
+  recordObservedRevision(state.authoritativeSnapshot, snapshot);
   state.authoritativeSnapshot = snapshot; state.authoritativeReceivedAt = new Date().toISOString();
   if (initial && !state.snapshot && state.flight) {
     try {
@@ -67,7 +75,7 @@ function rememberFlight(result) {
   return true;
 }
 function describeMilestone(previous, next) {
-  if (next.status === 'complete') return 'Crew complete. The result is ready below.';
+  if (next.status === 'complete') return 'Crew complete. The report is ready.';
   if (next.status === 'partial') return 'Partial result reported. Open the result for the remaining gaps.';
   const changed = next.members.filter((member) => previous?.members.find((old) => old.id === member.id)?.status !== member.status);
   const complete = changed.filter((member) => member.status === 'complete');
@@ -135,6 +143,7 @@ function renderMission(mission) {
   $('mission-title').textContent = isLong ? `${short}…` : mission;
   $('full-mission-text').textContent = mission;
   disclosure.hidden = !isLong;
+  if (document.activeElement !== $('mission-text') && $('mission-text').value !== mission) $('mission-text').value = mission;
 }
 
 export function validateCrew(members) {
@@ -185,18 +194,15 @@ function normalizeSnapshot(input) {
   };
 }
 
-function previewSnapshot() {
-  return { schemaVersion: 1, view: 'builder', mission: 'Plan a welcoming first contribution experience for an open-source project.', execution: 'not_started', status: 'planned',
-    members: [
-      { id: 'lead', parentId: null, name: 'Arthur', role: 'Mission lead', task: 'Shape a practical first-contribution journey. Combine the crew’s findings into one coherent plan.', output: 'A clear onboarding plan with a first issue, review process, and next steps.', status: 'planned' },
-      { id: 'maker', parentId: 'lead', name: 'Trillian', role: 'Experience designer', task: 'Design a friendly path from curious visitor to first merged contribution.', output: 'A five-step contributor journey and a draft welcome message.', status: 'planned' },
-      { id: 'critic', parentId: 'lead', name: 'Marvin', role: 'Constructive skeptic', task: 'Identify where a newcomer could get confused, excluded, or stuck.', output: 'Three likely failure points, each with a concrete improvement.', status: 'planned' },
-      { id: 'guide', parentId: 'maker', name: 'Ford', role: 'Field guide', task: 'Make the first contribution small, comprehensible, and easy to review.', output: 'A starter-issue template with acceptance criteria.', status: 'planned' },
-    ], constraints: ['Keep the first contribution achievable in one sitting.', 'Distinguish proposed ideas from verified project facts.'], summary: '', deliverable: '', openQuestions: [],
-  };
+function notify(message, kind = 'info') {
+  $('notice').textContent = message; $('notice').dataset.kind = kind; $('notice').hidden = !message;
+  for (const notice of document.querySelectorAll('[data-dialog-notice]')) notice.remove();
+  const dialog = document.querySelector('dialog[open]');
+  if (message && dialog) {
+    const notice = el('p', 'notice', message); notice.dataset.dialogNotice = ''; notice.dataset.kind = kind;
+    notice.setAttribute('role', 'status'); notice.setAttribute('aria-live', 'polite'); dialog.append(notice);
+  }
 }
-
-function notify(message, kind = 'info') { $('notice').textContent = message; $('notice').dataset.kind = kind; $('notice').hidden = !message; }
 function selected() { return state.snapshot?.members.find((member) => member.id === state.selectedId); }
 function isBuilder() { return state.snapshot?.view === 'builder'; }
 function depthOf(member, members = state.snapshot.members) { let depth = 0; let current = member; while (current.parentId != null) { current = members.find((m) => m.id === current.parentId); if (!current) break; depth += 1; } return depth; }
@@ -218,63 +224,85 @@ function acceptSnapshot(input, force = false) {
 
 function markDirty() { state.dirty = true; state.revision += 1; state.sentRevision = null; $('message-preview').hidden = true; notify(''); render(); }
 
-function positions() {
-  const members = state.snapshot?.members || [];
-  const width = $('constellation').clientWidth || 600;
-  const root = members.find((member) => member.parentId == null);
-  const leaves = members.filter((member) => !members.some((child) => child.parentId === member.id));
-  const fullscreen = $('deck').dataset.display === 'fullscreen';
-  const height = Math.max(fullscreen && width > 600 ? 380 : 284, leaves.length * 62 + 62);
-  $('constellation').style.height = `${height}px`;
-  const maxDepth = members.length ? Math.max(...members.map((member) => depthOf(member))) : 0;
-  const margin = width <= 400 ? 52 : 65;
-  const map = new Map(); let leafIndex = 0;
-  function place(member) {
-    const children = members.filter((child) => child.parentId === member.id);
-    const y = children.length ? children.map(place).reduce((a, b) => a + b, 0) / children.length : 42 + ((leafIndex++ + .5) / Math.max(leaves.length, 1)) * (height - 72);
-    const x = maxDepth ? margin + depthOf(member) / maxDepth * (width - margin * 2) : width / 2;
-    map.set(member.id, { x, y }); return y;
-  }
-  if (root) place(root);
-  return { map, width, height };
-}
-
 function renderMap() {
   const members = state.snapshot?.members || [];
-  $('empty-map').hidden = !!members.length;
   $('crew-count').textContent = `${members.length} / 7 ${state.snapshot?.execution === 'native_agents' ? 'members' : 'roles'}`;
-  const { map, width, height } = positions();
-  $('connections').setAttribute('viewBox', `0 0 ${width} ${height}`);
-  const paths = [];
+  swarmField.update(flightFieldState(state.snapshot, state.flight?.id, state.selectedId));
+}
+
+function renderCrewList() {
+  const members = state.snapshot?.members || [];
+  $('crew-list').dataset.empty = String(!members.length);
   for (const member of members) {
-    const point = map.get(member.id);
-    if (member.parentId) {
-      const parent = map.get(member.parentId);
-      const mid = (parent.x + point.x) / 2;
-      const path = svgEl('path', { d: `M ${parent.x} ${parent.y} C ${mid} ${parent.y}, ${mid} ${point.y}, ${point.x} ${point.y}`, class: `route ${member.status} ${member.id === state.selectedId || member.parentId === state.selectedId ? 'selected' : ''}` });
-      paths.push(path);
-    }
-    let button = cursorNodes.get(member.id);
+    let button = crewRows.get(member.id);
     if (!button) {
-      button = el('button', 'crew-cursor'); button.type = 'button';
-      const icon = svgEl('svg', { viewBox: '0 0 20 27', class: 'cursor-icon', 'aria-hidden': 'true', focusable: 'false' });
-      icon.append(svgEl('path', { d: 'M2 1 L18 14 L10.8 14.8 L8.2 24 Z' }));
-      const text = el('span', 'cursor-text'); text.append(el('span', 'cursor-name'), el('span', 'cursor-role'), el('span', 'cursor-state'));
-      button.append(icon, text); button.addEventListener('click', () => selectMember(member.id));
-      cursorNodes.set(member.id, button); $('cursor-layer').append(button);
+      button = el('button', 'crew-list-item'); button.type = 'button';
+      button.append(el('span', 'crew-list-name'), el('span', 'crew-list-role'), el('span', 'crew-list-status'));
+      button.addEventListener('click', () => selectMember(member.id));
+      crewRows.set(member.id, button); $('crew-list').append(button);
     }
-    button.style.left = `${point.x}px`; button.style.top = `${point.y}px`;
-    button.dataset.status = member.status; button.setAttribute('aria-pressed', String(member.id === state.selectedId));
+    button.dataset.status = member.status; button.dataset.depth = String(depthOf(member));
+    button.setAttribute('aria-pressed', String(member.id === state.selectedId));
     button.setAttribute('aria-label', `${member.name}, ${member.role}, ${label(member.status)}. Select role.`);
-    button.querySelector('.cursor-name').textContent = member.name; button.querySelector('.cursor-role').textContent = member.role; button.querySelector('.cursor-state').textContent = label(member.status);
+    button.querySelector('.crew-list-name').textContent = member.name;
+    button.querySelector('.crew-list-role').textContent = member.role;
+    button.querySelector('.crew-list-status').textContent = label(member.status);
   }
-  for (const [id, button] of cursorNodes) if (!members.some((member) => member.id === id)) { button.remove(); cursorNodes.delete(id); }
-  $('connections').replaceChildren(...paths);
+  for (const [id, button] of crewRows) if (!members.some(member => member.id === id)) { button.remove(); crewRows.delete(id); }
+}
+
+function recordObservedRevision(previous, next) {
+  if (!state.flight || state.flight.revision <= lastLoggedRevision) return;
+  lastLoggedRevision = state.flight.revision;
+  const messages = [];
+  if (!previous) messages.push(`${next.members.length} crew roles received · ${label(next.status)}.`);
+  else {
+    if (previous.status !== next.status) messages.push(`Flight reported ${next.status}.`);
+    for (const member of next.members) {
+      const before = previous.members.find(item => item.id === member.id);
+      if (!before) messages.push(`${member.name} added to the crew plan.`);
+      else if (before.status !== member.status) messages.push(`${member.name} reported ${member.status}.`);
+      else if (before.task !== member.task || before.role !== member.role || before.output !== member.output) messages.push(`${member.name}’s assignment updated.`);
+      else if (before.result !== member.result) messages.push(`${member.name}’s contribution updated.`);
+    }
+    if (previous.mission !== next.mission) messages.push('Mission updated.');
+    if (previous.summary !== next.summary) messages.push('Lead synthesis updated.');
+    if (!messages.length) messages.push('Board revision received.');
+  }
+  const receivedAt = new Date().toISOString();
+  shipLog.push(...messages.map(message => ({ revision: state.flight.revision, receivedAt, message })));
+  if (shipLog.length > 100) shipLog.splice(0, shipLog.length - 100);
+  renderShipLog();
+}
+
+function renderShipLog() {
+  $('ship-log').replaceChildren(...shipLog.slice().reverse().map(entry => {
+    const row = el('li', 'log-entry');
+    const meta = el('div', 'log-meta');
+    const time = el('time', '', new Date(entry.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); time.dateTime = entry.receivedAt;
+    meta.append(el('span', '', `Revision ${entry.revision}`), time);
+    row.append(meta, el('p', '', entry.message)); return row;
+  }));
+  if (!shipLog.length) $('ship-log').append(el('li', 'empty-log', 'No flight revisions received yet.'));
+  $('ship-log').dataset.empty = String(!shipLog.length);
+}
+
+function openDialog(id) {
+  const dialog = $(id); if (!dialog || dialog.open) return;
+  for (const other of document.querySelectorAll('dialog[open]')) if (other !== dialog) other.close();
+  if (id === 'crew-dialog' && state.snapshot && !state.selectedId) { state.selectedId = state.snapshot.members[0].id; renderMap(); renderCrewList(); renderInspector(); }
+  if (id === 'log-dialog') renderShipLog();
+  if (id === 'report-dialog') $('deliverable-section').open = true;
+  dialog.showModal();
+}
+
+function focusCrewControl() {
+  (crewRows.get(state.selectedId) || $('crew-dialog').querySelector('[data-close-dialog]'))?.focus();
 }
 
 function selectMember(id) {
   if (state.editing && state.selectedId !== id) { notify('Save or cancel the role edits before selecting another cursor.'); return; }
-  state.selectedId = id; renderMap(); renderInspector();
+  state.selectedId = id; renderMap(); renderCrewList(); renderInspector(); openDialog('crew-dialog');
   persistView();
   // Selection is presentation state. Deployment and challenges send their own
   // complete context so a later click cannot overwrite a pending command.
@@ -308,29 +336,48 @@ function renderInspector() {
 }
 
 function render() {
-  const snapshot = state.snapshot; if (!snapshot) { renderMap(); return; }
+  const snapshot = state.snapshot;
+  $('deck').dataset.hasSnapshot = String(!!snapshot);
+  $('deck').dataset.phase = snapshot?.status || 'idle';
+  if (!snapshot) {
+    renderMap(); renderCrewList(); renderInspector(); renderShipLog();
+    writeText('execution-label', 'Visual rehearsal · no agents running');
+    writeText('crew-count', 'Your crew starts with a mission');
+    writeText('map-caption', 'Only received flight revisions appear here. Times show when this deck observed each report.');
+    writeText('milestone', isPreview ? 'A small crew. A wide-open universe.' : 'Waiting for the chat to assemble your crew.');
+    $('flight-status').hidden = true;
+    $('mission-text').disabled = !isPreview;
+    $('deploy').disabled = !isPreview || !$('mission-text').value.trim();
+    $('open-report').hidden = true;
+    $('edit-mission').disabled = true;
+    return;
+  }
   const executionLabels = { not_started: 'Chat-led crew · planned', guided_passes: 'Chat-led crew · role passes', native_agents: 'Native workers · host-reported' };
   $('execution-label').textContent = executionLabels[snapshot.execution];
   refreshSyncLabel();
-  $('deck').dataset.phase = snapshot.status;
-  writeText('eyebrow', 'ONE CREW. ONE FLIGHT DECK.');
+  writeText('eyebrow', 'HEART OF GOLD / MISSION CONTROL');
   renderMission(snapshot.mission);
   writeText('mission-note', isBuilder() ? 'Select a cursor to shape its assignment.' : 'Select a cursor to inspect its contribution.');
-  writeText('map-caption', isBuilder() ? 'Planned responsibilities. No work has started.' : 'Activity follows host-reported milestones, not independent telemetry.');
+  writeText('map-caption', 'Received flight revisions only. Times show when this deck observed each host report; they are not execution timestamps.');
   const working = snapshot.members.filter((member) => member.status === 'working').length;
   const completed = snapshot.members.filter((member) => member.status === 'complete').length;
   $('flight-status').hidden = false;
   writeText('work-counts', snapshot.execution === 'not_started' ? `${snapshot.members.length} roles · ready` : `${completed}/${snapshot.members.length} complete${working ? ` · ${working} working` : ''}`);
   writeText('milestone', state.milestone);
-  renderMap(); renderInspector();
+  renderMap(); renderCrewList(); renderInspector();
   $('mission-settings').hidden = !state.missionEditing;
-  $('edit-mission').disabled = !isBuilder() || state.busy || state.editing;
+  $('edit-mission').disabled = !isBuilder() || state.busy || state.editing || state.messageUnconfirmed || state.cached || state.expired;
   $('edit-mission').hidden = !isBuilder();
-  $('deploy').hidden = !isBuilder();
-  $('deploy').disabled = ((!state.connected || !state.canMessage || !state.flight?.writeToken) && !isPreview) || state.expired || state.cached || state.busy || state.messageUnconfirmed || state.editing || state.missionEditing || !!state.pending || state.sentRevision === state.revision;
-  $('deploy').textContent = state.busy ? 'Sending to the chat…' : state.messageUnconfirmed ? 'Awaiting chat report…' : state.sentRevision === state.revision ? 'Sent to the chat ✓' : 'Deploy the drive ↗';
+  $('mission-text').disabled = !isBuilder() || state.busy || state.messageUnconfirmed || state.cached || state.expired || state.missionEditing;
+  const hasResult = !!snapshot.summary || snapshot.members.some(member => member.result);
+  $('open-report').hidden = !hasResult;
+  $('copy-report').disabled = !hasResult;
+  $('deploy').hidden = false;
+  $('deploy').disabled = isBuilder() ? ((!state.connected || !state.canMessage || !state.flight?.writeToken) && !isPreview) || !snapshot.mission.trim() || state.expired || state.cached || state.busy || state.messageUnconfirmed || state.editing || state.missionEditing || !!state.pending || state.sentRevision === state.revision : !terminal() || !hasResult;
+  $('deploy').textContent = !isBuilder() ? terminal() ? 'Open report ↗' : 'In flight' : state.busy ? 'Sending to the chat…' : state.messageUnconfirmed ? 'Awaiting chat report…' : state.sentRevision === state.revision ? 'Sent to the chat ✓' : 'Engage drive ↗';
+  writeText('composer-mode', isBuilder() ? 'Powered by your chat' : snapshot.status === 'working' ? 'Following your chat' : 'Mission reported');
   $('fork-plan').hidden = isBuilder() || !terminal(); $('fork-plan').disabled = state.busy || state.expired || state.cached;
-  $('deliverable-section').hidden = isBuilder() || (!snapshot.summary && !snapshot.members.some((member) => member.result));
+  $('deliverable-section').hidden = isBuilder() || !hasResult;
   writeText('result-state', snapshot.status === 'complete' ? 'Complete' : snapshot.status === 'partial' ? 'Partial result' : 'In progress');
   writeText('report-summary', snapshot.deliverable ? `Requested deliverable: ${snapshot.deliverable}` : '');
   writeText('deliverable-content', snapshot.summary || 'The final synthesis has not been reported yet. Select a cursor to read its contribution.');
@@ -338,7 +385,7 @@ function render() {
   const questionsKey = JSON.stringify(snapshot.openQuestions);
   if (state.questionsKey !== questionsKey) $('open-questions').replaceChildren(...snapshot.openQuestions.map((question) => el('li', '', question)));
   state.questionsKey = questionsKey;
-  let truth = 'The chat does the work. This deck follows reported milestones; it does not create agents or call models.';
+  let truth = 'An open-source experiment from ProjectForty2. Bring a towel. Check the work.';
   if (state.expired) truth = 'This temporary flight is unavailable. The last report is preserved; ask the chat to open a new flight when needed.';
   else if (state.cached) truth = 'Showing a saved display of this flight. Its state must be checked before sending another request.';
   else if (!isPreview && state.connected && !state.flight) truth = 'This older snapshot is static. Ask the chat to open a new persistent flight deck.';
@@ -368,7 +415,7 @@ $('role-form').addEventListener('submit', (event) => {
 });
 $('edit-role').addEventListener('click', startRoleEdit);
 $('cancel-edit').addEventListener('click', () => { state.editing = false; render(); $('edit-role').focus(); });
-$('close-inspector').addEventListener('click', () => { if (state.editing) return; const id = state.selectedId; state.selectedId = null; renderMap(); renderInspector(); persistView(); cursorNodes.get(id)?.focus(); });
+$('close-inspector').addEventListener('click', () => { if (state.editing) return; const id = state.selectedId; state.selectedId = null; renderMap(); renderCrewList(); renderInspector(); persistView(); crewRows.get(id)?.focus(); });
 $('deliverable-section').addEventListener('toggle', persistView);
 $('full-mission').addEventListener('toggle', persistView);
 $('branch-role').addEventListener('click', () => {
@@ -379,17 +426,33 @@ $('branch-role').addEventListener('click', () => {
   state.snapshot.members.push({ id, parentId: member.id, name, role: 'Specialist', task: `Investigate one focused part of ${member.name}’s assignment. Edit this task before deploying.`, output: 'A concise contribution with assumptions and actionable next steps.', status: 'planned', result: '', workerId: '', evidence: [] });
   state.selectedId = id; markDirty(); startRoleEdit();
 });
-$('remove-role').addEventListener('click', () => { const member = selected(); if (!isBuilder() || !member?.parentId) return; const ids = descendantIds(member.id); state.snapshot.members = state.snapshot.members.filter((item) => !ids.has(item.id)); state.selectedId = member.parentId; markDirty(); cursorNodes.get(state.selectedId)?.focus(); });
-$('edit-mission').addEventListener('click', () => { if (!isBuilder()) return; state.missionEditing = true; $('mission-input').value = state.snapshot.mission; $('constraints-input').value = state.snapshot.constraints.join('\n'); render(); $('mission-input').focus(); });
-$('cancel-mission').addEventListener('click', () => { state.missionEditing = false; render(); $('edit-mission').focus(); });
-$('mission-form').addEventListener('submit', (event) => { event.preventDefault(); const mission = $('mission-input').value.trim(); const constraints = $('constraints-input').value.split('\n').map((line) => line.trim()).filter(Boolean); if (!mission) return; if (constraints.length > 8 || constraints.some((item) => item.length > 500)) { notify('Use up to eight constraints, with 500 characters or fewer per line.', 'error'); return; } state.snapshot.mission = mission; state.snapshot.constraints = constraints; state.missionEditing = false; markDirty(); $('edit-mission').focus(); });
+$('remove-role').addEventListener('click', () => { const member = selected(); if (!isBuilder() || !member?.parentId) return; const ids = descendantIds(member.id); state.snapshot.members = state.snapshot.members.filter((item) => !ids.has(item.id)); state.selectedId = member.parentId; markDirty(); crewRows.get(state.selectedId)?.focus(); });
+$('edit-mission').addEventListener('click', () => { if (!isBuilder()) return; state.missionEditing = true; $('mission-input').value = state.snapshot.mission; $('constraints-input').value = state.snapshot.constraints.join('\n'); render(); openDialog('crew-dialog'); $('mission-input').focus(); });
+$('cancel-mission').addEventListener('click', () => { state.missionEditing = false; render(); focusCrewControl(); });
+$('mission-form').addEventListener('submit', (event) => { event.preventDefault(); const mission = $('mission-input').value.trim(); const constraints = $('constraints-input').value.split('\n').map((line) => line.trim()).filter(Boolean); if (!mission) return; if (constraints.length > 8 || constraints.some((item) => item.length > 500)) { notify('Use up to eight constraints, with 500 characters or fewer per line.', 'error'); return; } state.snapshot.mission = mission; state.snapshot.constraints = constraints; state.missionEditing = false; markDirty(); focusCrewControl(); });
 $('load-snapshot').addEventListener('click', () => { if (state.pending) acceptSnapshot(state.pending, true); });
 $('fork-plan').addEventListener('click', () => { if (!state.snapshot) return; const next = copy(state.snapshot); next.view = 'builder'; next.status = 'planned'; next.execution = 'not_started'; next.summary = ''; next.openQuestions = []; next.members = next.members.map((member) => ({ ...member, status: 'planned', result: '', evidence: [], workerId: '' })); acceptSnapshot(next, true); markDirty(); notify('A new draft is ready. Previous results stay in the conversation.'); });
 
 export function crewPlan(snapshot) {
   validateCrew(snapshot.members);
-  return { schemaVersion: 1, mission: snapshot.mission, deliverable: snapshot.deliverable || snapshot.members.find((member) => member.parentId == null).output, constraints: snapshot.constraints, limits: { maxMembers: 7, maxDepth: 2 }, members: snapshot.members.map(({ id, parentId, name, role, task, output }) => ({ id, parentId, name, role, task, output })) };
+  const mission = snapshot.mission.trim();
+  if (!mission || mission.length > 6000) throw new Error('Give the crew a mission of up to 6,000 characters.');
+  return { schemaVersion: 1, mission, deliverable: snapshot.deliverable || snapshot.members.find((member) => member.parentId == null).output, constraints: snapshot.constraints, limits: { maxMembers: 7, maxDepth: 2 }, members: snapshot.members.map(({ id, parentId, name, role, task, output }) => ({ id, parentId, name, role, task, output })) };
 }
+
+for (const [button, dialog] of [['open-crew', 'crew-dialog'], ['open-log', 'log-dialog'], ['open-report', 'report-dialog'], ['open-guide', 'guide-dialog']]) $(button).addEventListener('click', () => openDialog(dialog));
+for (const button of document.querySelectorAll('[data-close-dialog]')) button.addEventListener('click', () => $(button.dataset.closeDialog)?.close());
+$('pause-motion').addEventListener('click', () => {
+  motionPaused = !motionPaused; swarmField.setPaused(motionPaused);
+  $('pause-motion').setAttribute('aria-pressed', String(motionPaused));
+  $('pause-motion').textContent = motionPaused ? 'Resume motion' : 'Pause motion';
+});
+$('pause-motion').title = 'Pause the visualization. Crew work in the chat is unaffected.';
+$('mission-text').addEventListener('input', () => {
+  if (!state.snapshot) { $('deploy').disabled = !isPreview || !$('mission-text').value.trim(); return; }
+  if (!isBuilder() || state.busy || state.messageUnconfirmed) return;
+  state.snapshot.mission = $('mission-text').value; markDirty();
+});
 
 async function sendToChat(message, context, purpose) {
   if (state.busy || state.messageUnconfirmed) return false;
@@ -438,16 +501,20 @@ async function sendToChat(message, context, purpose) {
   } finally { state.busy = false; render(); schedulePoll(0); }
 }
 
-$('deploy').addEventListener('click', async () => {
+$('mission-composer').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!state.snapshot) { notify('Open Heart of Gold in a connected chat and ask it to assemble this crew. This browser preview cannot start work.'); return; }
+  if (!isBuilder()) { if (terminal()) openDialog('report-dialog'); return; }
   if (!isBuilder() || state.editing || state.missionEditing) return;
   try {
     const plan = crewPlan(state.snapshot);
-    const message = 'Deploy the drive with this crew. Keep all progress in the existing flight deck.';
+    const missionChangedSinceLastReport = plan.mission !== state.authoritativeSnapshot?.mission;
+    const message = 'Engage the drive with this crew. Keep all progress in the existing flight deck.';
     if (await sendToChat(message, async () => {
       const saved = await app.callServerTool({ name: 'save_plan', arguments: { flightId: state.flight.id, writeToken: state.flight.writeToken, expectedRevision: state.flight.revision, plan: { mission: plan.mission, deliverable: plan.deliverable, constraints: plan.constraints, members: plan.members } } }, { timeout: 10000 });
       if (saved?.isError) throw resultError(saved);
       rememberFlight(saved); receiveSnapshot(saved.structuredContent, true);
-      return { crewPlan: crewPlan(state.snapshot), flightId: state.flight.id, writeToken: state.flight.writeToken, expectedRevision: state.flight.revision, requestedAction: 'deploy', progressInstructions: 'Reuse this flight. Use show_flight for actual reported milestones; do not call build_crew again. Execute only with available host capabilities, using guided passes when native delegation is absent.' };
+      return { crewPlan: crewPlan(state.snapshot), flightId: state.flight.id, writeToken: state.flight.writeToken, expectedRevision: state.flight.revision, requestedAction: 'deploy', missionChangedSinceLastReport, progressInstructions: 'Before executing, check every existing role, task and output contract against the current mission. If the mission changed, re-specialize this same crew for the new mission, retaining stable member IDs, branch bounds and user constraints; report the revised plan through show_flight before starting work. Reuse this flight for all actual reported milestones; do not call build_crew again. Execute only with available host capabilities, using guided passes when native delegation is absent.' };
     }, 'deploy')) {
       state.sentRevision = state.revision; state.dirty = false; render();
     }
@@ -458,6 +525,18 @@ $('challenge-branch').addEventListener('click', async () => {
   await sendToChat(`Challenge ${member.name}’s contribution and update this flight deck.`, () => ({ flightId: state.flight.id, writeToken: state.flight.writeToken, expectedRevision: state.flight.revision, requestedAction: 'challenge', selectedMemberId: member.id, flightSnapshot: state.snapshot, progressInstructions: 'Inspect the selected contribution, revise as warranted, and update the same flight through show_flight. Do not create another board or invent work.' }), 'challenge');
 });
 $('copy-message').addEventListener('click', async () => { try { await navigator.clipboard.writeText(state.lastMessage); notify('Short message copied. Sending the full crew context requires a connected flight deck.'); } catch { notify('Copy is unavailable in this browser. You can select the short message below.'); } });
+$('copy-report').addEventListener('click', async () => {
+  const snapshot = state.snapshot; if (!snapshot) return;
+  const parts = ['# Heart of Gold · ProjectForty2', snapshot.mission, `Status: ${snapshot.status}. Reported by the chat host; not independently verified.`];
+  if (snapshot.summary) parts.push('## Lead synthesis', snapshot.summary);
+  for (const member of snapshot.members.filter(item => item.result)) {
+    parts.push(`## ${member.name} · ${member.role}`, member.result);
+    if (member.evidence.length) parts.push(member.evidence.map(item => `${item.label}: ${item.url}`).join('\n'));
+  }
+  if (snapshot.openQuestions.length) parts.push('## Still worth asking', snapshot.openQuestions.map(question => `- ${question}`).join('\n'));
+  try { await navigator.clipboard.writeText(parts.join('\n\n')); notify('Report copied. Keep a towel handy.'); }
+  catch { notify('This host cannot copy to the clipboard. You can select the report text or ask the chat for an export.', 'error'); }
+});
 $('expand').addEventListener('click', async () => {
   if (!state.connected) return;
   const requested = state.hostContext.displayMode === 'fullscreen' ? 'inline' : 'fullscreen';
@@ -481,13 +560,9 @@ function applyHostContext(context = {}) {
 const media = window.matchMedia('(prefers-color-scheme: dark)');
 if (isPreview) document.documentElement.dataset.theme = media.matches ? 'dark' : 'light';
 media.addEventListener?.('change', (event) => { if (isPreview) document.documentElement.dataset.theme = event.matches ? 'dark' : 'light'; });
-let resizeFrame;
-const layoutObserver = new ResizeObserver(() => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(renderMap); });
-layoutObserver.observe($('constellation-wrap') || $('constellation').parentElement);
-
+render();
 if (isPreview) {
   $('preview-banner').hidden = false;
-  acceptSnapshot(previewSnapshot(), true);
 } else {
   app.ontoolinput = ({ arguments: input }) => { if (!state.snapshot && typeof input?.mission === 'string') renderMission(clip(input.mission, 6000)); };
   app.ontoolinputpartial = ({ arguments: input }) => { if (!state.snapshot && typeof input?.mission === 'string') renderMission(clip(input.mission, 6000)); };
@@ -503,7 +578,7 @@ if (isPreview) {
   };
   app.ontoolcancelled = () => notify('The host cancelled this request. No new work has been reported.');
   app.onhostcontextchanged = applyHostContext;
-  app.onteardown = async () => { state.tornDown = true; stopPolling(); layoutObserver.disconnect(); cancelAnimationFrame(resizeFrame); return {}; };
+  app.onteardown = async () => { state.tornDown = true; stopPolling(); swarmField.destroy(); return {}; };
   const connectingNotice = setTimeout(() => { if (!state.connected) notify('Still waiting for the chat bridge. This view cannot deploy until the host connects.'); }, 8000);
   app.onclose = () => { stopPolling(); state.connected = false; state.canMessage = false; render(); };
   app.connect(undefined, { timeout: 12000 }).then(() => { clearTimeout(connectingNotice); state.connected = true; state.canMessage = !!app.getHostCapabilities()?.message?.text; applyHostContext(app.getHostContext() || {}); render(); schedulePoll(0); }).catch(() => { clearTimeout(connectingNotice); state.connected = false; notify('The chat bridge could not connect. Reopen Heart of Gold from the conversation.', 'error'); render(); });

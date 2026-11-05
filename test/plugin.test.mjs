@@ -144,7 +144,7 @@ test('MCP creates only one render tool; updates are UI-less and app polling tool
   const { rpc } = await fixture(t);
   const initialized = await rpc('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'test', version: '1' } });
   assert.equal(initialized.response.status, 200); assert.equal(initialized.value.result.serverInfo.name, 'heart-of-gold');
-  assert.equal(initialized.value.result.serverInfo.version, '0.2.1');
+  assert.equal(initialized.value.result.serverInfo.version, '0.3.0');
   assert.equal(initialized.response.headers.get('mcp-session-id'), null); assert.equal(initialized.response.headers.get('set-cookie'), null);
   const listed = await rpc('tools/list');
   assert.deepEqual(listed.value.result.tools.map(tool => tool.name), ['build_crew', 'show_flight', 'read_flight', 'save_plan']);
@@ -242,11 +242,11 @@ test('MCP resource is self-contained with no network domains', async t => {
   assert(!resource.text.includes('PRIVATE-A'));
 });
 
-test('v3 is the rendering cache key while v1 and v2 remain readable resource aliases', async t => {
+test('v4 is the rendering cache key while earlier resources remain readable aliases', async t => {
   const { rpc } = await fixture(t);
-  assert.equal(FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v3.html');
+  assert.equal(FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v4.html');
   const listed = (await rpc('resources/list')).value.result.resources;
-  assert.deepEqual(listed.map(resource => resource.uri), [FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v1.html', 'ui://heart-of-gold/flight-deck-v2.html']);
+  assert.deepEqual(listed.map(resource => resource.uri), [FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v1.html', 'ui://heart-of-gold/flight-deck-v2.html', 'ui://heart-of-gold/flight-deck-v3.html']);
   const outputs = await Promise.all(listed.map(resource => rpc('resources/read', { uri: resource.uri })));
   for (const [index, output] of outputs.entries()) {
     assert.equal(output.value.result.contents[0].uri, listed[index].uri);

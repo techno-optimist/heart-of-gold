@@ -3,37 +3,51 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <title>Heart of Gold · Flight deck</title>
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#050509">
+  <title>Heart of Gold · ProjectForty2</title>
   <!-- HOG_STYLES -->
 </head>
 <body>
-  <main class="deck" id="deck" aria-labelledby="mission-title">
-    <div class="preview-banner" id="preview-banner" hidden><strong>Browser preview</strong><span>Build a crew here. Deployment needs a connected chat.</span></div>
+  <main class="deck" id="deck" data-has-snapshot="false" data-phase="idle" aria-label="Heart of Gold swarm flight deck">
+    <a class="skip" href="#mission-text">Skip to mission controls</a>
+    <div class="preview-banner" id="preview-banner" hidden><strong>Browser preview</strong><span>Visual rehearsal. Connect Heart of Gold in your chat to deploy a crew.</span></div>
     <header class="masthead">
-      <div class="context-label"><span class="gold-mark" aria-hidden="true">↗</span><span id="execution-label">Preparing the crew</span></div>
-      <div class="sync-controls"><span class="snapshot-label" id="snapshot-label">Waiting for the chat host</span><button class="text-button refresh-button" id="refresh-flight" aria-label="Refresh this flight" hidden>Refresh</button></div>
+      <a class="brand" href="https://projectforty2.ai/" target="_blank" rel="noreferrer" aria-label="ProjectForty2 home">
+        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><rect width="64" height="64" rx="14" fill="#050509"/><circle cx="32" cy="32" r="25.5" fill="#0b1322" stroke="#e8a830" stroke-width="4"/><text x="32" y="40.5" text-anchor="middle" font-family="Cormorant Garamond, Georgia, serif" font-size="25" font-weight="500" fill="#f7f2e8">42</text></svg>
+        <span>Project<em>Forty2</em></span>
+      </a>
+      <span class="experiment-name">Heart of Gold</span>
+      <nav aria-label="Flight deck"><button class="text-button" id="open-guide">The field guide</button><button class="connection" id="expand" hidden><span class="status-dot" aria-hidden="true"></span>Open flight deck <span aria-hidden="true">↗</span></button></nav>
     </header>
-    <section class="mission-block">
-      <div class="eyebrow" id="eyebrow">ONE CREW. ONE FLIGHT DECK.</div>
-      <h1 id="mission-title">A small crew. An improbable result.</h1>
-      <details class="full-mission" id="full-mission" hidden><summary>Read full mission</summary><p id="full-mission-text"></p></details>
-      <p id="mission-note">Your mission and crew will arrive from the conversation.</p>
+    <section class="flight-deck" aria-label="Swarm mission control">
+      <div class="ruler ruler-x" aria-hidden="true"><span>X</span></div><div class="ruler ruler-y" aria-hidden="true"><span>Y</span></div>
+      <div class="star-map" id="star-map" aria-label="Interactive crew field"><canvas id="swarm-canvas" aria-hidden="true"></canvas><div id="map-nodes"></div></div>
+      <div class="scene-copy"><p class="eyebrow">THE INFINITE IMPROBABILITY DRIVE</p><h1 id="title">Don’t panic.<br><em>Bring a swarm.</em></h1><p class="scene-intro">One curious human.<br>A small crew of possibilities.</p><span class="scene-rule" aria-hidden="true"></span></div>
+      <div class="scene-state"><div><p class="eyebrow" id="eyebrow">HEART OF GOLD / MISSION CONTROL</p><h2 id="mission-title">A little space to think.</h2></div><span class="run-state" id="flight-status" hidden><span id="work-counts">STANDBY</span></span></div>
+      <div class="field-meta"><span class="rehearsal-mark" aria-hidden="true"></span><span id="execution-label">Visual rehearsal · no model calls</span><span class="meta-divider" aria-hidden="true">/</span><span id="crew-count">Your crew starts with a mission</span></div>
+      <div class="field-tools"><button id="pause-motion" class="tool-button" aria-pressed="false">Pause motion</button><button id="open-crew" class="tool-button">The crew <span aria-hidden="true">↗</span></button><button id="open-log" class="tool-button">Ship’s log <span aria-hidden="true">↗</span></button><button id="open-report" class="report-button" hidden>Read the report <span aria-hidden="true">↗</span></button></div>
+      <div class="mission-dock">
+        <form id="mission-composer">
+          <div class="composer-heading"><label class="field-label" for="mission-text">Where shall we go?</label><span id="composer-mode">Powered by your chat</span></div>
+          <div class="composer-entry"><textarea id="mission-text" maxlength="6000" rows="2" required placeholder="Give the crew a question, a plan, an improbably good idea…"></textarea><button type="submit" class="launch primary" id="deploy" disabled>Engage drive ↗</button></div>
+          <div class="composer-toolbar"><span id="limits-note">A small crew. A wide-open universe.</span><button type="button" id="edit-mission" class="settings-button" disabled>Flight settings <span aria-hidden="true">⌘</span></button><button type="button" class="settings-button" id="fork-plan" hidden>Build on this crew ↗</button></div>
+        </form>
+        <div class="pending-snapshot" id="pending-snapshot" hidden><p>A new host report arrived. Your draft is still here.</p><button class="text-button" id="load-snapshot">Use new report</button></div>
+        <p class="notice app-notice" id="notice" role="status" aria-live="polite" hidden></p>
+      </div>
+      <div class="transmission"><span class="transmission-mark" aria-hidden="true">↳</span><p id="milestone" role="status" aria-live="polite">A small crew. A wide-open universe.</p></div>
     </section>
-    <div class="flight-status" id="flight-status" hidden><span id="work-counts"></span><span id="milestone" role="status" aria-live="polite"></span></div>
-    <div class="workspace">
-      <section class="constellation-wrap" aria-labelledby="constellation-title">
-        <div class="map-heading"><h2 id="constellation-title">The constellation</h2><span id="crew-count">0 / 7 roles</span></div>
-        <div class="constellation" id="constellation">
-          <div class="map-axis" aria-hidden="true"><span>INTENT</span><span>EXPLORE</span><span>GO DEEPER</span></div>
-          <svg id="connections" aria-hidden="true" focusable="false"></svg>
-          <div id="cursor-layer" class="cursor-layer" role="group" aria-label="Crew roles. Select a cursor to inspect its task."></div>
-          <p class="empty-map" id="empty-map">The drive is waiting for a mission.</p>
-        </div>
-        <div class="map-caption"><span class="path-key" aria-hidden="true"></span><span id="map-caption">A branch is a responsibility. A line shows who it reports to.</span></div>
-      </section>
+    <footer class="site-footer"><span id="truth-note">An open-source experiment. Bring a towel. Check the work.</span><a href="https://github.com/techno-optimist/heart-of-gold" target="_blank" rel="noreferrer">Join the experiment ↗</a></footer>
+
+    <dialog id="crew-dialog" class="drawer" aria-label="Crew assignments and contributions">
+      <button class="dialog-close" aria-label="Close crew drawer" data-close-dialog="crew-dialog">×</button>
+      <p class="eyebrow">THE USUAL IMPROBABLE SUSPECTS</p><h2 class="drawer-title">Your improbable crew.</h2>
+      <p id="mission-note" class="muted">Select a cursor to shape its assignment or inspect its contribution.</p>
+      <div id="crew-list" class="crew-roster" aria-label="Crew members"></div>
+      <details class="full-mission" id="full-mission" hidden><summary>Read full mission</summary><p id="full-mission-text"></p></details>
       <section class="inspector" id="inspector" aria-labelledby="inspector-title" hidden>
-        <div class="inspector-top"><span class="eyebrow" id="selected-position">CAPTAIN’S CHAIR</span><span class="status-pill" id="selected-status">Planned</span><button id="close-inspector" class="text-button close-inspector" aria-label="Close role details">×</button></div>
+        <div class="inspector-top"><span class="eyebrow" id="selected-position">CAPTAIN’S CHAIR</span><span class="status-pill" id="selected-status">Planned</span><button id="close-inspector" class="text-button" aria-label="Close selected assignment">Back to crew ↑</button></div>
         <h2 id="inspector-title"></h2><p class="role-line" id="selected-role"></p>
         <div id="read-contract"><div class="contract-item"><h3>The assignment</h3><p id="selected-task"></p></div><div class="contract-item output-contract"><h3>Bring back</h3><p id="selected-output"></p></div></div>
         <form id="role-form" class="role-form" hidden>
@@ -41,24 +55,42 @@
           <label>The assignment<textarea id="role-task" rows="3" maxlength="2000" required></textarea></label>
           <label>Bring back<textarea id="role-output" rows="2" maxlength="1000" required></textarea></label>
           <label id="parent-label">Reports to<select id="role-parent"></select></label>
-          <div class="form-actions"><button class="secondary" type="submit">Save role</button><button class="text-button" id="cancel-edit" type="button">Cancel</button></div>
+          <div class="form-actions"><button class="secondary outline-button" type="submit">Save role</button><button class="text-button" id="cancel-edit" type="button">Cancel</button></div>
         </form>
         <div class="role-actions" id="role-actions"><button class="text-button" id="edit-role">Edit role</button><button class="text-button branch-button" id="branch-role">+ Branch specialist</button><button class="text-button danger" id="remove-role">Remove</button></div>
-        <div class="contribution" id="contribution" hidden><h3>Contribution</h3><p id="selected-result"></p><ul id="evidence-list" aria-label="Reported evidence"></ul><p class="worker-id" id="worker-id"></p><button class="secondary" id="challenge-branch">Challenge this branch ↗</button></div>
+        <div class="contribution" id="contribution" hidden><h3>Contribution</h3><p id="selected-result"></p><ul id="evidence-list" aria-label="Reported evidence"></ul><p class="worker-id" id="worker-id"></p><button class="secondary outline-button" id="challenge-branch">Challenge this branch ↗</button></div>
       </section>
-    </div>
-    <section class="mission-settings" id="mission-settings" hidden>
-      <form id="mission-form"><label>Mission<textarea id="mission-input" maxlength="6000" rows="3" required></textarea></label><label>Constraints <span class="field-help">One per line · up to 8</span><textarea id="constraints-input" rows="3" maxlength="4007"></textarea></label><div class="form-actions"><button type="submit" class="secondary">Save mission</button><button type="button" class="text-button" id="cancel-mission">Cancel</button></div></form>
-    </section>
-    <details class="deliverable result-drawer" id="deliverable-section" hidden><summary><span>What the crew brought back</span><span id="result-state">Result</span></summary><div class="result-body"><p id="report-summary"></p><pre id="deliverable-content"></pre><div id="questions-section" hidden><h3>Still worth asking</h3><ul id="open-questions"></ul></div></div></details>
-    <div class="pending-snapshot" id="pending-snapshot" hidden><p>A new host snapshot arrived. Your draft is still here.</p><button class="text-button" id="load-snapshot">Use new snapshot</button></div>
-    <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
-    <footer class="flight-controls">
-      <div class="control-notes"><span id="limits-note">7 roles maximum · 2 branch levels</span><button class="text-button" id="edit-mission" disabled>Edit mission</button></div>
-      <div class="primary-actions"><button class="primary" id="deploy" disabled>Deploy the drive <span aria-hidden="true">↗</span></button><button class="secondary" id="expand" hidden>Open flight deck <span aria-hidden="true">⤢</span></button><button class="secondary" id="fork-plan" hidden>Build on this crew <span aria-hidden="true">↗</span></button></div>
-      <p class="truth-note" id="truth-note">The chat does the work. Heart of Gold makes the plan and contributions inspectable.</p>
-    </footer>
-    <section class="message-preview" id="message-preview" hidden aria-labelledby="message-preview-title"><h2 id="message-preview-title">The departure message</h2><p>Preview only. Nothing was sent, and no agents were started.</p><pre id="message-preview-content"></pre><button class="secondary" id="copy-message">Copy message</button></section>
+      <section class="mission-settings" id="mission-settings" hidden>
+        <p class="eyebrow">KNOW WHERE YOUR TOWEL IS</p><h2>Flight settings.</h2>
+        <form id="mission-form"><label>Mission<textarea id="mission-input" maxlength="6000" rows="3" required></textarea></label><label>Constraints <span class="field-help">One per line · up to 8</span><textarea id="constraints-input" rows="3" maxlength="4007"></textarea></label><div class="form-actions"><button type="submit" class="secondary outline-button">Save mission</button><button type="button" class="text-button" id="cancel-mission">Cancel</button></div></form>
+      </section>
+      <section class="message-preview" id="message-preview" hidden aria-labelledby="message-preview-title"><h2 id="message-preview-title">The departure message</h2><p>Preview only. Nothing was sent, and no agents were started.</p><pre id="message-preview-content"></pre><button class="secondary outline-button" id="copy-message">Copy message</button></section>
+    </dialog>
+
+    <dialog id="log-dialog" class="drawer" aria-label="Ship’s log">
+      <button class="dialog-close" aria-label="Close ship’s log" data-close-dialog="log-dialog">×</button>
+      <p class="eyebrow">TRANSMISSIONS FROM THE CREW</p><div class="log-heading"><h2>Ship’s log.</h2><button class="tool-button" id="refresh-flight" aria-label="Refresh this flight" hidden>Refresh ↻</button></div>
+      <p class="snapshot-label" id="snapshot-label">Waiting for the chat host</p>
+      <p class="muted" id="map-caption">The chat reports meaningful milestones here.</p>
+      <ol id="ship-log"><li class="empty-log"><time>·</time><span>All systems pleasantly uneventful.</span></li></ol>
+    </dialog>
+
+    <dialog id="report-dialog" class="report-dialog" aria-label="Mission report">
+      <button class="dialog-close" aria-label="Close mission report" data-close-dialog="report-dialog">×</button>
+      <p class="eyebrow">BACK FROM THE EDGE OF THE UNIVERSE</p><h2>The crew brought<br>something back.</h2>
+      <details class="deliverable result-drawer" id="deliverable-section" hidden><summary><span>The result</span><span id="result-state">Report</span></summary><div class="result-body"><p id="report-summary"></p><pre id="deliverable-content"></pre><div id="questions-section" hidden><h3>Still worth asking</h3><ul id="open-questions"></ul></div></div></details>
+      <button class="secondary outline-button copy-report" id="copy-report">Copy report ↗</button>
+    </dialog>
+
+    <dialog id="guide-dialog" aria-label="The Hitchhiker’s field guide">
+      <button class="dialog-close" aria-label="Close field guide" data-close-dialog="guide-dialog">×</button>
+      <p class="eyebrow">THE HITCHHIKER’S FIELD GUIDE</p><h2>Don’t panic.<br>Start small.</h2>
+      <p>Heart of Gold is an open-source experiment from ProjectForty2. One curious human sets a mission. A small crew of roles brings back something useful.</p>
+      <ol class="guide-steps"><li><b>Choose a mission.</b> Give the crew a question, a plan, or an improbably good idea.</li><li><b>Meet the crew.</b> Every cursor has an assignment and something to bring back. Select one to inspect or edit its work.</li><li><b>Engage the drive.</b> Your chat performs the work with its available tools. Native workers appear only when the host actually creates them; guided passes are roles performed by one assistant.</li><li><b>Bring it home.</b> Follow the ship’s log, question a contribution, and read the crew’s report.</li></ol>
+      <div class="plain-note"><b>Movement is a map of the work.</b><p>Cursor motion is presentation, not a recording of mouse activity or a live token stream. Status comes from the chat host. The plugin does not create agents or call models.</p></div>
+      <p class="muted">One flight deck follows the mission. Its latest report is held temporarily on ProjectForty2 for two hours, until expiry or a restart. The towels are metaphorical.</p>
+      <a class="outline-button" href="https://github.com/techno-optimist/heart-of-gold" target="_blank" rel="noreferrer">Join the experiment ↗</a>
+    </dialog>
   </main>
   <!-- HOG_SCRIPT -->
 </body>

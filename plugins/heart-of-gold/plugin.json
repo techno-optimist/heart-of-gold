@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "heart-of-gold",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "A small crew for big questions. Plan, challenge, and synthesize useful work with an inspectable flight deck.",
   "author": {
     "name": "ProjectForty2",
@@ -104,7 +104,7 @@
         "commerce_description": "This plugin does not sell products, process payments, or invoke external AI providers. Host account usage applies."
       },
       "publication": {
-        "release_notes": "Keeps one persistent flight deck and tolerates delayed host acknowledgement without duplicate Deploy requests. Reports actual host milestones through quiet updates; temporary bounded memory retains only the latest snapshot, with no durable flight history or external model calls."
+        "release_notes": "Brings the ProjectForty2 website's cursor field, typography, and mission dock into one persistent chat flight deck, with embedded fonts. Engage drive uses the chat host's available tools, requires no provider API key, and tolerates delayed host acknowledgement without duplicate requests. Quiet updates report actual milestones; temporary bounded memory retains only the latest snapshot."
       }
     }
   }

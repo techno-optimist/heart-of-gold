@@ -1,6 +1,6 @@
 # Persistent flight contract
 
-`build_crew` opens one deck with resource `ui://heart-of-gold/flight-deck-v3.html`. Quiet data tools update and read its temporary server state without rendering another card. The tools do not run the crew: report only work performed by this chat or actual host workers.
+`build_crew` opens one deck with resource `ui://heart-of-gold/flight-deck-v4.html`. Quiet data tools update and read its temporary server state without rendering another card. The tools do not run the crew: report only work performed by this chat or actual host workers.
 
 ## `build_crew`
 
@@ -56,7 +56,7 @@ For `native_agents`, every delegated child whose status is no longer `planned` r
 
 ## Widget reads, edits, and conflicts
 
-The app-only `read_flight` tool accepts `flightId`, `readToken`, and optional `afterRevision`; it returns the latest snapshot when changed. The mounted component performs these reads. The app-only `save_plan` tool saves an edited, unstarted plan using the same write capability and expected revision. Before its brief Deploy request, the UI supplies the updated plan, capability, and revision to model context. The lead must use that current plan rather than replacing it with the original preset.
+The app-only `read_flight` tool accepts `flightId`, `readToken`, and optional `afterRevision`; it returns the latest snapshot when changed. The mounted component performs these reads. The app-only `save_plan` tool saves an edited, unstarted plan using the same write capability and expected revision. Before its brief Engage drive request (Deploy in earlier versions), the UI supplies the updated plan, capability, and revision to model context. The lead must use that current plan rather than replacing it with the original preset.
 
 Writes use optimistic revision checks. After authenticating a valid write capability, an old revision returns `isError: true` with `FLIGHT_CONFLICT` in error metadata and `structuredContent: { flight: { id, revision, expiresAt }, currentSnapshot }`. Reconcile the returned full snapshot with the user's actual edits before submitting a new update; do not merely replace the revision number and retry. Recovery does not return a capability, so retain the one already held. Missing/expired flights and incorrect capabilities return `FLIGHT_UNAVAILABLE` without a snapshot or revision; do not infer which condition occurred or open another card automatically. Malformed or missing input fields can also fail schema validation.
 

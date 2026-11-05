@@ -2,13 +2,14 @@
 
 A small crew for big questions. One flight deck stays in the chat while the crew works: the plan becomes actual starts, contributions, critique, and synthesis in that same card. The chat host performs the work. ProjectForty2's MCP service holds the latest reported state for the deck; it does not run an external model.
 
-This is the `0.2.1` plugin package, separate from the website's release numbering. Its one-card protocol replaces the `0.1.x` repeated-rendering design. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
+This is the `0.3.0` plugin package, separate from the website's release numbering. It brings the website's cursor field and mission dock into the existing one-card protocol. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
 
 ## What you get
 
 - **Deploy the drive:** a reusable skill that turns the user's task into useful workstreams, includes a skeptic, and reconciles the work into one deliverable.
 - **A bounded crew:** 3–7 members including the lead, at most two delegation levels. Generic presets become task-specific output contracts.
 - **One inspectable flight deck:** `build_crew` opens the card once; data-only `show_flight` calls update the same flight. The mounted card reads the latest snapshot. Evidence links and unresolved questions stay with the contributions.
+- **The ProjectForty2 canvas:** the website's shared cursor engine, dark drafting field, mission dock, and embedded Cormorant Garamond / DM Sans fonts, adapted to the chat frame. Engage drive uses native chat power; provider connection and private website history are separate.
 - **A useful fallback:** if the host cannot delegate, the same assistant performs clearly labeled guided passes. If embedded UI is unavailable, the answer remains useful in text.
 
 Installing a plugin cannot add a host capability that the account or surface does not expose. Native delegation requires real host tools and returned worker IDs. Work mode subagents are available to eligible accounts; ordinary Chat should not be advertised as a guaranteed parallel-agent environment. Account, workspace, and surface restrictions still apply. [OpenAI subagent documentation](https://learn.chatgpt.com/docs/agent-configuration/subagents), [plugin availability](https://learn.chatgpt.com/docs/plugins).
@@ -80,7 +81,7 @@ Official guidance explains that imported MCP declarations can produce a Desktop-
 2. Build an account-specific archive from the repository root, replacing the example argument with your registered app ID:
 
    ```sh
-   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.2.1
+   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.3.0
    ```
 
 3. In ChatGPT **Plugins → + → Upload archive**, upload this private ZIP, or use the existing personal plugin's update action. Inspect the imported details and select **Install plugin** when available. Start setup or a new Work chat and verify the skill and connected tools. Account/workspace policies still apply.
@@ -119,7 +120,7 @@ The portable package uses the Agent Plugins `1.0.0` schemas, with OpenAI listing
 Create a release archive from the repository root with Node 22+ and Python 3 (standard library only):
 
 ```sh
-node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.2.1.zip
+node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.3.0.zip
 ```
 
 The ZIP has `plugin.json` and `mcp.json` directly at its root, alongside `LICENSE`, `skills/`, and `assets/`. It excludes the website, UI source/build output, marketplace catalog, dependencies, and local data. The packager rejects symlinks, unreviewed file types, missing referenced assets, and common credential/private-path patterns; it verifies the archive and prints its SHA-256. Identical source files produce identical ZIP bytes. These checks do not replace source review or the platform's own validation. Creating the ZIP does not install, upload, submit, or approve it.

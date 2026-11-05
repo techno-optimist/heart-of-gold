@@ -121,6 +121,7 @@ test('plugin preview executes only hashed bundled scripts and has no network acc
   assert.equal(response.status, 200); assert.equal(response.headers.get('set-cookie'), null);
   const html = await response.text(); const csp = response.headers.get('content-security-policy');
   assert(csp.includes("default-src 'none'")); assert(csp.includes("connect-src 'none'"));
+  assert(csp.includes('font-src data:'));
   assert(csp.includes("base-uri 'none'")); assert(csp.includes("form-action 'none'"));
   const scriptPolicy = csp.split(';').find(part => part.trim().startsWith('script-src'));
   assert(scriptPolicy); assert(!scriptPolicy.includes('unsafe-inline')); assert(!scriptPolicy.includes('unsafe-eval')); assert(!scriptPolicy.includes('https:'));

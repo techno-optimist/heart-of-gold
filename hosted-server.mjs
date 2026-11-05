@@ -145,7 +145,7 @@ export async function createHostedServer({
       if (req.method === 'GET' && url.pathname === `${BASE}/plugin-preview/`) {
         const html = await readFile(pluginResource, 'utf8');
         const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => `'sha256-${createHash('sha256').update(match[1]).digest('base64')}'`).join(' ');
-        res.setHeader('Content-Security-Policy', `default-src 'none'; script-src ${hashes}; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`);
+        res.setHeader('Content-Security-Policy', `default-src 'none'; script-src ${hashes}; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(html); return;
       }
       if (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin && req.headers.origin !== publicOrigin)) throw httpError(403, 'ORIGIN_DENIED', 'Requests must come from the ProjectForty2 flight deck.');
