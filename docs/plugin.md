@@ -2,7 +2,7 @@
 
 A small crew for real work. One flight deck stays in the chat while the host builds: actual source files, crew contributions, checks, and synthesis arrive in that same card. ProjectForty2's MCP service holds the latest supplied state; the host's tools perform the work.
 
-This is the `0.6.1` plugin workflow, separate from the website's release numbering. It refines ordinary web-app defaults and shell-first ordering, using the existing 0.6.0 component protocol and v8 deck. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
+This is the `0.6.1` plugin workflow, separate from the website's release numbering. It refines ordinary web-app defaults and shell-first ordering, using the existing 0.6.0 component protocol; the compact inline deck uses the v9 UI resource. Source changes, deployment, a successful account installation, and an approved public-directory listing are distinct milestones. This document does not establish deployment or account acceptance of a new version. See [review and verification gates](plugin-review.md).
 
 ## What you get
 
@@ -32,6 +32,8 @@ After installation, invoke Heart of Gold in a new chat, or invoke its `deploy-dr
 The primary action in the widget sends a follow-up request to the host. It is not an independent server job. Work starts when the host actually starts it, and worker completion appears when the host reports the result. These are meaningful milestones, not live token streams or independently observed telemetry. Follow-up work and results stay in the same deck; the final chat response can be brief.
 
 ## One card, updated in place
+
+UI code and flight data have separate refresh paths. The compact deck uses `ui://heart-of-gold/flight-deck-v9.html` so newly opened cards can receive a fresh resource after metadata refresh. Earlier URIs remain readable. Updating the same URI can leave cached HTML in ChatGPT for up to one hour; refreshing tools does not prove an existing card replaced its code. For custom-server acceptance, refresh the connection, confirm the new URI, then test in a new conversation. This does not justify opening additional cards during an ongoing mission. [Official cache guidance](https://developers.openai.com/plugins/deploy/app-review#other-changes), [refresh procedure](https://developers.openai.com/plugins/deploy/connect-chatgpt#refresh-metadata).
 
 Only `build_crew` attaches the UI resource. `show_flight` updates crew state and `update_project` updates selected files without attaching a template. Both advance the same flight revision, and the existing component uses a data-only read tool to refresh itself. This follows OpenAI's separation of render tools from data tools and its example of `app.callServerTool` updating a mounted component. [Official UI guidance](https://developers.openai.com/plugins/build/chatgpt-ui#separate-data-processing-from-ui-rendering).
 

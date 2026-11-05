@@ -283,11 +283,11 @@ test('MCP resource is self-contained with no network domains', async t => {
   assert(!resource.text.includes('PRIVATE-A'));
 });
 
-test('v8 is the rendering cache key while earlier resources remain readable aliases', async t => {
+test('v9 opens the compact deck with a fresh cache key while earlier resources remain readable', async t => {
   const { rpc } = await fixture(t);
-  assert.equal(FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v8.html');
+  assert.equal(FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v9.html');
   const listed = (await rpc('resources/list')).value.result.resources;
-  assert.deepEqual(listed.map(resource => resource.uri), [FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v1.html', 'ui://heart-of-gold/flight-deck-v2.html', 'ui://heart-of-gold/flight-deck-v3.html', 'ui://heart-of-gold/flight-deck-v4.html', 'ui://heart-of-gold/flight-deck-v5.html', 'ui://heart-of-gold/flight-deck-v6.html', 'ui://heart-of-gold/flight-deck-v7.html']);
+  assert.deepEqual(listed.map(resource => resource.uri), [FLIGHT_RESOURCE_URI, ...Array.from({ length: 8 }, (_, index) => `ui://heart-of-gold/flight-deck-v${index + 1}.html`)]);
   const outputs = await Promise.all(listed.map(resource => rpc('resources/read', { uri: resource.uri })));
   for (const [index, output] of outputs.entries()) {
     assert.equal(output.value.result.contents[0].uri, listed[index].uri);

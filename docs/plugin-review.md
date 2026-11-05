@@ -4,7 +4,9 @@ Package: `heart-of-gold` `0.6.1`. Publisher label: ProjectForty2. Source: [techn
 
 This document separates a prepared review package from observed installation, operation, and approval. Do not turn an automated test pass into a claim that ChatGPT installation, embedded rendering, or public submission succeeded.
 
-Earlier package and account receipts establish their recorded versions only. The `0.6.1` ordinary-request defaults use the existing 0.6.0 component protocol and v8 presentation; the new skill ordering and stack defaults need their own acceptance checks while retaining the single-card, temporary-state, and retention contracts; do not inherit acceptance from an earlier version.
+Earlier package and account receipts establish their recorded versions only. The `0.6.1` ordinary-request defaults use the existing 0.6.0 component protocol; the compact inline presentation uses resource v9. Skill, stack-default, and presentation changes need their own acceptance checks while retaining the single-card, temporary-state, and retention contracts; do not inherit acceptance from an earlier version.
+
+For rendering acceptance, record the actual loaded UI revision and container height. The v9 URI separates the compact deck from cached v8 HTML; v1–v8 remain readable aliases. A live bundle hash or successful tool refresh alone does not establish that an existing card loaded the new bundle. Same-URI resource updates may remain cached for up to one hour, and the documented custom-server refresh flow ends with a new conversation. Test the fresh URI there; preserve existing cards and their work. [Official cache guidance](https://developers.openai.com/plugins/deploy/app-review#other-changes), [refresh procedure](https://developers.openai.com/plugins/deploy/connect-chatgpt#refresh-metadata).
 
 ## Product and data-flow review
 
