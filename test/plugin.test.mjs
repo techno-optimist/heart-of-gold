@@ -77,6 +77,27 @@ test('specialized and revised unstarted crews remain editable builder snapshots'
   assert.equal(showFlight(performed).view, 'report');
 });
 
+test('preselected execution modes on untouched plans normalize to editable unstarted crews', () => {
+  for (const execution of ['guided_passes', 'native_agents']) {
+    const input = plan(); input.execution = execution;
+    input.members[1].task = 'Review the welcome README when the user authorizes work.';
+    const before = structuredClone(input);
+    const output = showFlight(input);
+    assert.equal(output.execution, 'not_started'); assert.equal(output.view, 'builder'); assert.equal(output.status, 'planned');
+    assert.deepEqual(output.members, input.members); assert.deepEqual(input, before);
+  }
+  const working = plan(); working.execution = 'guided_passes'; working.status = 'working'; working.members[0].status = 'working';
+  const receipt = showFlight(working);
+  assert.equal(receipt.execution, 'guided_passes'); assert.equal(receipt.view, 'report');
+});
+
+test('planned snapshots cannot discard results or worker evidence through normalization', () => {
+  const resultBearing = plan(); resultBearing.execution = 'guided_passes'; resultBearing.members[1].result = 'A reported prior contribution.';
+  assert.throws(() => showFlight(resultBearing), /planned flight cannot contain results or worker IDs/);
+  const workerBearing = plan(); workerBearing.execution = 'native_agents'; workerBearing.members[1].workerId = 'actual-host-worker';
+  assert.throws(() => showFlight(workerBearing), /planned flight cannot contain results or worker IDs/);
+});
+
 test('completion requires concrete results and summary; unstarted flights cannot fake work', () => {
   const input = plan(); input.members[1].status = 'complete'; input.members[1].result = 'A finding.';
   assert.throws(() => showFlight(input));
