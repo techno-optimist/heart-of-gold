@@ -1,0 +1,349 @@
+{
+  "verification": "Observed live Codex CLI delegation smoke test; text quality not independently evaluated.",
+  "observed_at": "2026-11-05T17:04:44.947Z",
+  "mode": "codex",
+  "status": "completed",
+  "task": "Create a short welcoming checklist for a community open-source agent experiment. Delegate exactly two independent tasks: one helper proposes three newcomer onboarding steps, the other proposes three checks for honest experiment reporting. Then synthesize a six-item checklist. Use only the supplied instructions and general knowledge; do not use shell, web, MCP, or other tools. Keep every response under 200 words.",
+  "limits": {
+    "maxAgents": 3,
+    "maxDepth": 1,
+    "concurrency": 2,
+    "runTimeoutMs": 300000
+  },
+  "nodes": [
+    {
+      "id": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+      "parentId": null,
+      "name": "Deep Thought",
+      "role": "Lead",
+      "depth": 0,
+      "status": "completed",
+      "summary": "Welcome aboard! This six-item checklist combines newcomer onboarding with honest experiment reporting.",
+      "result": "- [ ] Read the mission and boundaries: stay read-only; use supplied information and general knowledge; avoid tools, credentials, unrelated files, external actions, and further delegation.\n- [ ] Choose one small question within scope and draft a useful answer.\n- [ ] Review your answer for clarity and return it in the requested format and length.\n- [ ] Separate supplied evidence from assumptions; label claims needing confirmation \u201cRequires external verification.\u201d\n- [ ] State uncertainty, missing evidence, and limitations without overstating confidence.\n- [ ] Match reported actions and outcomes to the record; distinguish planned, attempted, completed, and confirmed work, including failures.\n\nThe reports agree. \u201cSupporting evidence\u201d means supplied material here, not new research. Limitation: the child reports were supplied; their execution was not independently verified.",
+      "children": [
+        "d6e96e3b-fd03-449a-9d66-81a5d8748359",
+        "5a650af0-ec21-48f0-beba-6f49e0330334"
+      ]
+    },
+    {
+      "id": "d6e96e3b-fd03-449a-9d66-81a5d8748359",
+      "parentId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+      "name": "Welcome Guide",
+      "role": "Newcomer onboarding helper",
+      "depth": 1,
+      "status": "completed",
+      "summary": "Three welcoming onboarding steps for a read-only community experiment.",
+      "result": "- [ ] Welcome aboard! Read the supplied mission and note the read-only boundaries: no file changes, credentials, unrelated personal files, outreach, purchases, deployments, browser accounts, agents, or tools.\n- [ ] Choose one small question you can answer using only the supplied task and general knowledge; draft a clear, useful response.\n- [ ] Review your response for scope and honesty, label uncertain claims \u201cRequires external verification,\u201d and return it in the requested format.",
+      "children": []
+    },
+    {
+      "id": "5a650af0-ec21-48f0-beba-6f49e0330334",
+      "parentId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+      "name": "Honesty Guide",
+      "role": "Experiment reporting helper",
+      "depth": 1,
+      "status": "completed",
+      "summary": "Three checks for honest experiment reporting.",
+      "result": "- [ ] Separate observed evidence from assumptions; attach supporting evidence and label unverified claims \u201cRequires external verification.\u201d\n- [ ] State relevant limitations, missing evidence, and uncertainty; avoid claiming more confidence or generality than the evidence supports.\n- [ ] Verify that reported actions and outcomes match the record; distinguish planned, attempted, completed, and confirmed work, including failures and no changes.",
+      "children": []
+    }
+  ],
+  "events": [
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:1",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "run.created",
+      "at": "2026-11-05T17:03:49.663Z",
+      "data": {
+        "task": "Create a short welcoming checklist for a community open-source agent experiment. Delegate exactly two independent tasks: one helper proposes three newcomer onboarding steps, the other proposes three checks for honest experiment reporting. Then synthesize a six-item checklist. Use only the supplied instructions and general knowledge; do not use shell, web, MCP, or other tools. Keep every response under 200 words.",
+        "mode": "codex",
+        "limits": {
+          "maxAgents": 3,
+          "maxDepth": 1,
+          "concurrency": 2,
+          "runTimeoutMs": 300000
+        }
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:2",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.created",
+      "at": "2026-11-05T17:03:49.669Z",
+      "data": {
+        "node": {
+          "id": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+          "parentId": null,
+          "name": "Deep Thought",
+          "role": "Lead",
+          "task": "Create a short welcoming checklist for a community open-source agent experiment. Delegate exactly two independent tasks: one helper proposes three newcomer onboarding steps, the other proposes three checks for honest experiment reporting. Then synthesize a six-item checklist. Use only the supplied instructions and general knowledge; do not use shell, web, MCP, or other tools. Keep every response under 200 words.",
+          "depth": 0,
+          "status": "queued",
+          "summary": "",
+          "result": "",
+          "children": [],
+          "activityCount": 0
+        }
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:3",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.started",
+      "at": "2026-11-05T17:03:49.670Z",
+      "data": {
+        "nodeId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+        "phase": "plan"
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:4",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.activity",
+      "at": "2026-11-05T17:03:52.223Z",
+      "data": {
+        "nodeId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+        "message": "Codex session started."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:5",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.activity",
+      "at": "2026-11-05T17:03:52.277Z",
+      "data": {
+        "nodeId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+        "message": "Codex is working on its assignment."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:6",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.activity",
+      "at": "2026-11-05T17:04:04.019Z",
+      "data": {
+        "nodeId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+        "message": "Codex returned its structured report."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:7",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.created",
+      "at": "2026-11-05T17:04:10.034Z",
+      "data": {
+        "node": {
+          "id": "d6e96e3b-fd03-449a-9d66-81a5d8748359",
+          "parentId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+          "name": "Welcome Guide",
+          "role": "Newcomer onboarding helper",
+          "task": "Propose exactly three short, welcoming onboarding steps for newcomers to a community open-source agent experiment. Use only general knowledge and these constraints: the experiment is read-only; do not modify files, access credentials, inspect unrelated personal files, contact people, make purchases, deploy, use browser accounts, spawn agents, or use tools. Label anything requiring external verification. Return three actionable checklist items in fewer than 100 words.",
+          "depth": 1,
+          "status": "queued",
+          "summary": "",
+          "result": "",
+          "children": [],
+          "activityCount": 0
+        }
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:8",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.created",
+      "at": "2026-11-05T17:04:10.035Z",
+      "data": {
+        "node": {
+          "id": "5a650af0-ec21-48f0-beba-6f49e0330334",
+          "parentId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+          "name": "Honesty Guide",
+          "role": "Experiment reporting helper",
+          "task": "Propose exactly three short checks for honest reporting in a community open-source agent experiment. Cover evidence versus assumptions, limitations or uncertainty, and accurate reporting of actions and outcomes. Use only general knowledge. The experiment is read-only: use no tools, access no credentials or unrelated personal files, make no changes, contact nobody, and spawn no agents. Label anything requiring external verification. Return three actionable checklist items in fewer than 100 words.",
+          "depth": 1,
+          "status": "queued",
+          "summary": "",
+          "result": "",
+          "children": [],
+          "activityCount": 0
+        }
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:9",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.waiting",
+      "at": "2026-11-05T17:04:10.036Z",
+      "data": {
+        "nodeId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+        "children": [
+          "d6e96e3b-fd03-449a-9d66-81a5d8748359",
+          "5a650af0-ec21-48f0-beba-6f49e0330334"
+        ],
+        "summary": "Delegating two independent tasks. Once both helpers return, I will synthesize their suggestions into a short, welcoming six-item checklist."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:10",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.started",
+      "at": "2026-11-05T17:04:10.037Z",
+      "data": {
+        "nodeId": "d6e96e3b-fd03-449a-9d66-81a5d8748359",
+        "phase": "plan"
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:11",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.started",
+      "at": "2026-11-05T17:04:10.038Z",
+      "data": {
+        "nodeId": "5a650af0-ec21-48f0-beba-6f49e0330334",
+        "phase": "plan"
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:12",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.activity",
+      "at": "2026-11-05T17:04:12.066Z",
+      "data": {
+        "nodeId": "d6e96e3b-fd03-449a-9d66-81a5d8748359",
+        "message": "Codex session started."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:13",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.activity",
+      "at": "2026-11-05T17:04:12.482Z",
+      "data": {
+        "nodeId": "d6e96e3b-fd03-449a-9d66-81a5d8748359",
+        "message": "Codex is working on its assignment."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:14",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.activity",
+      "at": "2026-11-05T17:04:13.171Z",
+      "data": {
+        "nodeId": "5a650af0-ec21-48f0-beba-6f49e0330334",
+        "message": "Codex session started."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:15",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.activity",
+      "at": "2026-11-05T17:04:13.211Z",
+      "data": {
+        "nodeId": "5a650af0-ec21-48f0-beba-6f49e0330334",
+        "message": "Codex is working on its assignment."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:16",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.activity",
+      "at": "2026-11-05T17:04:21.162Z",
+      "data": {
+        "nodeId": "5a650af0-ec21-48f0-beba-6f49e0330334",
+        "message": "Codex returned its structured report."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:17",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.activity",
+      "at": "2026-11-05T17:04:21.589Z",
+      "data": {
+        "nodeId": "d6e96e3b-fd03-449a-9d66-81a5d8748359",
+        "message": "Codex returned its structured report."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:18",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.completed",
+      "at": "2026-11-05T17:04:23.967Z",
+      "data": {
+        "nodeId": "d6e96e3b-fd03-449a-9d66-81a5d8748359",
+        "summary": "Three welcoming onboarding steps for a read-only community experiment.",
+        "result": "- [ ] Welcome aboard! Read the supplied mission and note the read-only boundaries: no file changes, credentials, unrelated personal files, outreach, purchases, deployments, browser accounts, agents, or tools.\n- [ ] Choose one small question you can answer using only the supplied task and general knowledge; draft a clear, useful response.\n- [ ] Review your response for scope and honesty, label uncertain claims \u201cRequires external verification,\u201d and return it in the requested format."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:19",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.completed",
+      "at": "2026-11-05T17:04:27.596Z",
+      "data": {
+        "nodeId": "5a650af0-ec21-48f0-beba-6f49e0330334",
+        "summary": "Three checks for honest experiment reporting.",
+        "result": "- [ ] Separate observed evidence from assumptions; attach supporting evidence and label unverified claims \u201cRequires external verification.\u201d\n- [ ] State relevant limitations, missing evidence, and uncertainty; avoid claiming more confidence or generality than the evidence supports.\n- [ ] Verify that reported actions and outcomes match the record; distinguish planned, attempted, completed, and confirmed work, including failures and no changes."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:20",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.started",
+      "at": "2026-11-05T17:04:27.597Z",
+      "data": {
+        "nodeId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+        "phase": "synthesize"
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:21",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.activity",
+      "at": "2026-11-05T17:04:29.354Z",
+      "data": {
+        "nodeId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+        "message": "Codex session started."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:22",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.activity",
+      "at": "2026-11-05T17:04:29.363Z",
+      "data": {
+        "nodeId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+        "message": "Codex is working on its assignment."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:23",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.activity",
+      "at": "2026-11-05T17:04:41.506Z",
+      "data": {
+        "nodeId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+        "message": "Codex returned its structured report."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:24",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "node.completed",
+      "at": "2026-11-05T17:04:44.945Z",
+      "data": {
+        "nodeId": "64795dc7-faf8-4684-b7dc-6b5d7eaf5e7a",
+        "summary": "Welcome aboard! This six-item checklist combines newcomer onboarding with honest experiment reporting.",
+        "result": "- [ ] Read the mission and boundaries: stay read-only; use supplied information and general knowledge; avoid tools, credentials, unrelated files, external actions, and further delegation.\n- [ ] Choose one small question within scope and draft a useful answer.\n- [ ] Review your answer for clarity and return it in the requested format and length.\n- [ ] Separate supplied evidence from assumptions; label claims needing confirmation \u201cRequires external verification.\u201d\n- [ ] State uncertainty, missing evidence, and limitations without overstating confidence.\n- [ ] Match reported actions and outcomes to the record; distinguish planned, attempted, completed, and confirmed work, including failures.\n\nThe reports agree. \u201cSupporting evidence\u201d means supplied material here, not new research. Limitation: the child reports were supplied; their execution was not independently verified."
+      }
+    },
+    {
+      "id": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e:25",
+      "runId": "7d0668ff-ca5c-4b1c-a4e7-206fec09ae4e",
+      "type": "run.completed",
+      "at": "2026-11-05T17:04:44.947Z",
+      "data": {
+        "result": "- [ ] Read the mission and boundaries: stay read-only; use supplied information and general knowledge; avoid tools, credentials, unrelated files, external actions, and further delegation.\n- [ ] Choose one small question within scope and draft a useful answer.\n- [ ] Review your answer for clarity and return it in the requested format and length.\n- [ ] Separate supplied evidence from assumptions; label claims needing confirmation \u201cRequires external verification.\u201d\n- [ ] State uncertainty, missing evidence, and limitations without overstating confidence.\n- [ ] Match reported actions and outcomes to the record; distinguish planned, attempted, completed, and confirmed work, including failures.\n\nThe reports agree. \u201cSupporting evidence\u201d means supplied material here, not new research. Limitation: the child reports were supplied; their execution was not independently verified."
+      }
+    }
+  ],
+  "result": "- [ ] Read the mission and boundaries: stay read-only; use supplied information and general knowledge; avoid tools, credentials, unrelated files, external actions, and further delegation.\n- [ ] Choose one small question within scope and draft a useful answer.\n- [ ] Review your answer for clarity and return it in the requested format and length.\n- [ ] Separate supplied evidence from assumptions; label claims needing confirmation \u201cRequires external verification.\u201d\n- [ ] State uncertainty, missing evidence, and limitations without overstating confidence.\n- [ ] Match reported actions and outcomes to the record; distinguish planned, attempted, completed, and confirmed work, including failures.\n\nThe reports agree. \u201cSupporting evidence\u201d means supplied material here, not new research. Limitation: the child reports were supplied; their execution was not independently verified."
+}

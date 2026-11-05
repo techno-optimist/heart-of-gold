@@ -1,0 +1,14 @@
+{
+  "name": "@projectforty2/heart-of-gold",
+  "version": "0.1.0",
+  "description": "Don't panic. An inspectable, local-first agent swarm experiment from ProjectForty2.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check server.mjs && node --check public/app.js && node --check lib/runtime.mjs && node --check lib/adapters.mjs"
+  }
+}

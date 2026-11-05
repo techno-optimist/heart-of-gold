@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#eeefdf">
+  <meta name="description" content="Heart of Gold — a community experiment in visible agent swarms from ProjectForty2. Bring a task. Bring your agents. Bring a towel.">
+  <title>Heart of Gold · ProjectForty2</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#mission">Skip to mission controls</a>
+  <header class="masthead">
+    <a class="brand" href="./" aria-label="Heart of Gold home"><span class="brand-mark" aria-hidden="true">42</span><span>HEART OF GOLD<small>AN EXPERIMENT BY <b>PROJECTFORTY2</b></small></span></a>
+    <nav aria-label="Main"><a href="https://projectforty2.ai" target="_blank" rel="noreferrer">The mothership <span aria-hidden="true">↗</span></a><button class="text-button" id="guide-open">The field guide <span aria-hidden="true">↗</span></button><button class="connection" id="connect-open"><span class="status-dot" aria-hidden="true"></span><span id="connection-label">Finding the crew…</span></button></nav>
+  </header>
+  <main>
+    <section class="intro" aria-labelledby="title">
+      <div><p class="eyebrow">OPEN-SOURCE EXPERIMENT / NO. 042</p><h1 id="title">Small crews.<br><span>Improbable things.</span></h1></div>
+      <div class="intro-copy"><p>Give your agents a mission.<br>Watch them branch, collaborate, and bring it home.</p><span class="towel"><span aria-hidden="true">✳</span> Don’t panic. You’re in command.</span></div>
+    </section>
+    <section class="flight-deck" aria-label="Swarm mission control">
+      <aside class="mission-panel" id="mission">
+        <div class="panel-heading"><span class="eyebrow">01 / SET A COURSE</span><span class="tiny-number">↗</span></div>
+        <form id="mission-form">
+          <label class="field-label" for="task">What are we tackling?</label>
+          <textarea id="task" name="task" maxlength="4000" required rows="5" placeholder="A question, a plan, a wonderfully unreasonable idea…">Design a welcoming first-contribution experience for an open-source agent community.</textarea>
+          <div class="presets" aria-label="Example missions"><button type="button" data-preset="community">Community</button><button type="button" data-preset="research">Research</button><button type="button" data-preset="build">Build a plan</button></div>
+          <fieldset class="mode-field"><legend class="field-label">Choose your drive</legend><div class="mode-options"><label><input type="radio" name="mode" value="demo" checked><span>Flight simulator<small>No model needed</small></span></label><label><input type="radio" name="mode" value="codex" id="codex-mode" disabled><span>Live agents<small>Local Codex</small></span></label></div></fieldset>
+          <p class="mode-note" id="mode-note">A scripted demo of delegation. No AI calls, no charges.</p>
+          <details class="limits"><summary>Flight limits <span>3 at a time</span></summary><div class="limit-grid"><label for="max-agents">Crew limit<select id="max-agents"><option value="4">4 agents</option><option value="7" selected>7 agents</option></select></label><label for="max-depth">Branch depth<select id="max-depth"><option value="1">1 level</option><option value="2" selected>2 levels</option></select></label></div><p>Bounded branching. Maximum 3 agents running at once.</p></details>
+          <button type="submit" class="launch" id="launch-button"><span>Engage improbability drive</span><span aria-hidden="true">↗</span></button>
+          <button type="button" class="cancel-button" id="cancel-button" hidden>Drop out of hyperspace · Stop run</button>
+          <p class="launch-note" id="launch-note">A small step for your to-do list.</p>
+        </form>
+        <div class="mission-footer"><span class="eyebrow">THE EXPERIMENT</span><p>More helping hands.<br>Less Vogon paperwork.</p><button class="text-button small" id="about-open">How this actually works <span aria-hidden="true">↗</span></button></div>
+      </aside>
+      <section class="map-panel" aria-labelledby="map-title">
+        <div class="map-heading"><div><span class="eyebrow">02 / THE IMPROBABILITY FIELD</span><h2 id="map-title">A little space to think.</h2></div><span class="run-state" id="run-state">STANDBY</span></div>
+        <div class="map-toolbar"><span id="map-mode">SIMULATOR READY</span><span id="crew-count">0 crew aboard</span></div>
+        <div class="map-scroll"><div class="star-map" id="star-map" aria-label="Agent delegation map"><div class="map-grid" aria-hidden="true"></div><div class="orbit orbit-one" aria-hidden="true"></div><div class="orbit orbit-two" aria-hidden="true"></div><div class="map-corner top-left" aria-hidden="true">+ 00.042</div><div class="map-corner bottom-right" aria-hidden="true">SECTOR / POSSIBILITY</div><svg class="map-lines" id="map-lines" aria-hidden="true" viewBox="0 0 620 480" preserveAspectRatio="none"></svg><div id="map-nodes"></div><div class="map-empty" id="map-empty"><div class="empty-symbol" aria-hidden="true"><span>42</span><i></i></div><p>The universe is big.<br>Your first mission can be small.</p><span>SET A COURSE TO MEET YOUR CREW</span></div></div></div>
+        <div class="map-legend"><span><i class="legend-dot active"></i>Working</span><span><i class="legend-dot waiting"></i>Waiting on crew</span><span><i class="legend-dot done"></i>Complete</span><span class="legend-hint">Select a cursor to inspect</span></div>
+        <section class="log-panel"><div class="log-heading"><h3>Ship’s log</h3><span id="log-count">00 EVENTS</span></div><ol id="ship-log"><li class="empty-log"><time>—</time><span>All systems pleasantly uneventful. Awaiting a mission.</span></li></ol></section>
+      </section>
+      <aside class="inspector-panel" aria-label="Agent inspector and flight history">
+        <div class="panel-heading"><span class="eyebrow">03 / MEET THE CREW</span><span class="tiny-number">◎</span></div>
+        <div class="inspector" id="inspector"><div class="inspector-idle"><span class="inspector-cursor" aria-hidden="true"></span><h2>Every cursor<br>has a purpose.</h2><p>Pick a crew member to see their task, status, and contribution.</p><div class="plain-note"><b>The Babel fish translation</b><p>The map shows who delegated what. An agent is finished only when its result comes back.</p></div></div></div>
+        <section class="flight-history"><div class="history-heading"><h3>Previous flights</h3><button id="refresh-history" class="text-button small" title="Refresh flight history">↻</button></div><div id="history-list"><p class="muted">Your first departure awaits.</p></div></section>
+      </aside>
+    </section>
+    <section class="result-section" id="result-section" hidden><div class="result-heading"><div><p class="eyebrow">BACK FROM THE EDGE OF THE UNIVERSE</p><h2 id="result-title">The crew brought something back.</h2></div><div class="result-actions"><button class="outline-button" id="download-result">Save result ↓</button><button class="outline-button" id="download-receipt">Flight receipt ↓</button></div></div><p class="result-provenance" id="result-provenance"></p><pre id="result-content"></pre></section>
+    <p class="app-notice" id="app-notice" role="status" aria-live="polite"></p>
+  </main>
+  <footer class="site-footer"><span>PROJECTFORTY2 / HEART OF GOLD</span><p>Built for curious humans & their improbable crews. <a href="https://github.com/techno-optimist/heart-of-gold" target="_blank" rel="noreferrer">Join the experiment ↗</a></p><button id="footer-guide" class="text-button small">Bring a towel. Read the guide. ↗</button></footer>
+  <dialog id="guide-dialog"><button class="dialog-close" aria-label="Close guide" data-close>×</button><p class="eyebrow">THE HITCHHIKER’S FIELD GUIDE</p><h2>Don’t panic.<br>Start small.</h2><p>Heart of Gold is an open-source experiment from ProjectForty2. You set a mission; a lead agent can delegate bounded subtasks, wait for the crew, and synthesize their results.</p><ol class="guide-steps"><li><b>Choose a mission.</b> Start with a research question, plan, critique, or written deliverable.</li><li><b>Pick your drive.</b> The flight simulator is scripted. Live mode runs your installed Codex CLI using its existing login.</li><li><b>Meet the crew.</b> Every cursor is a task. Select it to inspect its work. Branches show delegation, not shared minds.</li><li><b>Bring it home.</b> Read the result and save a flight receipt. You can stop a run at any time.</li></ol><div class="plain-note"><b>Experimental means experimental.</b><p>This first version produces text deliverables in read-only agent sessions. It does not merge code, deploy projects, share your browser session, or connect arbitrary agent providers. More adapters are a community frontier.</p></div><p class="muted">An independent, affectionate nod to The Hitchhiker’s Guide to the Galaxy. No affiliation or endorsement. The towels are metaphorical.</p><a class="outline-button" href="https://projectforty2.ai" target="_blank" rel="noreferrer">Visit ProjectForty2 ↗</a></dialog>
+  <dialog id="connect-dialog"><button class="dialog-close" aria-label="Close agent connection" data-close>×</button><p class="eyebrow">WELCOME ABOARD</p><h2>Bring your<br>own crew.</h2><p id="connection-detail">Checking local Codex availability.</p><div class="connection-steps"><span>01</span><div><b>Run the local app</b><p>The hosted preview is a simulator. Live agents run on your machine.</p></div><span>02</span><div><b>Install and sign in to Codex</b><p>Use the official Codex CLI and run <code>codex login</code> in your terminal. Your credentials stay with Codex.</p></div><span>03</span><div><b>Select Live agents</b><p>Real model usage applies to your account. The crew works in bounded read-only sessions and returns text.</p></div></div><p class="muted">There are no API-key fields here. No secret cargo in the browser.</p><a class="outline-button" href="https://developers.openai.com/codex/cli" target="_blank" rel="noreferrer">Official Codex setup ↗</a></dialog>
+</body>
+</html>
