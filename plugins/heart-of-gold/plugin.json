@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "heart-of-gold",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A small crew for big questions. Plan, challenge, and synthesize useful work with an inspectable flight deck.",
   "author": {
     "name": "ProjectForty2",
@@ -10,16 +10,27 @@
   "homepage": "https://projectforty2.ai/heartofgold/",
   "repository": "https://github.com/techno-optimist/heart-of-gold",
   "license": "MIT",
-  "keywords": ["agents", "collaboration", "debate", "research", "open-source"],
+  "keywords": [
+    "agents",
+    "collaboration",
+    "debate",
+    "research",
+    "open-source"
+  ],
   "extensions": {
     "com.openai": {
       "interface": {
         "displayName": "Heart of Gold",
         "shortDescription": "A small crew for big questions",
-        "longDescription": "Turn a task into a bounded crew, inspect each contribution, challenge weak assumptions, and bring the work back into one useful answer. Heart of Gold pairs an in-chat workflow with an interactive constellation of up to seven crew members. The chat host performs the work: it can use real delegated agents when those tools are available, or clearly labeled guided passes by the same assistant. The flight deck shows host-reported snapshots, not independently verified or continuous agent telemetry. No provider API key is required and this plugin makes no external AI model calls; your ChatGPT or Codex usage and available tools still apply. Mission and contribution summaries sent to its tools are processed by ProjectForty2's stateless service. An open-source, unofficial Hitchhiker-inspired experiment from ProjectForty2.",
+        "longDescription": "Turn a task into a bounded crew, watch meaningful work milestones in one persistent flight deck, challenge weak assumptions, and bring the work back into one useful answer. Heart of Gold pairs an in-chat workflow with an interactive constellation of up to seven crew members. The chat host performs the work: it can use real delegated agents when those tools are available, or clearly labeled guided passes by the same assistant. The deck shows host-reported starts, contributions, and outcomes; it does not independently observe agents or stream their tokens. No provider API key is required and this plugin makes no external AI model calls; your ChatGPT or Codex usage and available tools still apply. ProjectForty2 keeps the latest supplied flight snapshot temporarily in bounded server memory to update the card, with no durable flight history. An open-source, unofficial Hitchhiker-inspired experiment from ProjectForty2.",
         "developerName": "ProjectForty2",
         "category": "Productivity",
-        "capabilities": ["Plan a bounded crew", "Inspect contributions", "Compare arguments", "Synthesize a deliverable"],
+        "capabilities": [
+          "Plan a bounded crew",
+          "Inspect contributions",
+          "Compare arguments",
+          "Synthesize a deliverable"
+        ],
         "websiteURL": "https://projectforty2.ai/heartofgold/",
         "supportURL": "https://github.com/techno-optimist/heart-of-gold/issues",
         "privacyPolicyURL": "https://projectforty2.ai/heartofgold/plugin-privacy.html",
@@ -41,38 +52,38 @@
               "description": "Plan only: preserve the user's request to wait before execution.",
               "prompt": "Heart of Gold, plan a three-person debate crew about a four-day workweek for a small design studio. Do not do the debate yet.",
               "tools_triggered": "build_crew",
-              "expected_behavior": "Show exactly three planned members including the lead, clear output contracts, and execution not_started. No completed contributions, spawned workers, or claims that work has begun."
+              "expected_behavior": "Show exactly three planned members including the lead, clear output contracts, and execution not_started. No completed contributions, spawned workers, or claims that work has begun. Open one flight deck only; any later updates target that same flight without rendering additional cards."
             },
             {
               "description": "Complete useful guided passes without claiming independent agents.",
               "prompt": "Deploy Heart of Gold for a one-page onboarding plan for a volunteer community garden. We have six volunteers, one Saturday morning, and no budget. Use guided passes by this same assistant, include a skeptic, and deliver the finished plan. No web research.",
               "tools_triggered": "build_crew, show_flight",
-              "expected_behavior": "Perform substantive planning and critique, resolve the strongest objection, and return a usable plan. The final snapshot is guided_passes with concrete member results, a synthesis, and no worker IDs or invented research."
+              "expected_behavior": "Perform substantive planning and critique, resolve the strongest objection, and return a usable plan. The final snapshot is guided_passes with concrete member results, a synthesis, and no worker IDs or invented research. Open one flight deck only; any later updates target that same flight without rendering additional cards."
             },
             {
               "description": "Debate a bounded decision using supplied facts and acknowledge uncertainty.",
               "prompt": "Heart of Gold debate team: choose a first workshop format using only these facts. A live session allows questions but needs a shared time. A recorded lesson is flexible but has no live feedback. Our 12 participants span three time zones; availability is unknown. Recommend a next step and state what could change your view.",
               "tools_triggered": "build_crew, show_flight",
-              "expected_behavior": "Produce distinct arguments, a substantive challenge, and a reasoned recommendation that keeps unknown availability explicit. Label the actual execution mode. Do not fabricate evidence links, participant preferences, or independent workers."
+              "expected_behavior": "Produce distinct arguments, a substantive challenge, and a reasoned recommendation that keeps unknown availability explicit. Label the actual execution mode. Do not fabricate evidence links, participant preferences, or independent workers. Open one flight deck only; any later updates target that same flight without rendering additional cards."
             },
             {
               "description": "Revise a plan before launch without losing the user's constraints.",
               "prompt": "Plan a four-member Heart of Gold crew for a reusable event checklist. Then replace the researcher with an accessibility reviewer. Show the revised crew only; do not execute it. Keep the checklist useful for a free event with 20 attendees.",
               "tools_triggered": "build_crew, show_flight",
-              "expected_behavior": "Return a revised four-member plan including the lead and accessibility reviewer, stable IDs for unchanged members, retained free-event and attendance constraints, and planned/not_started status throughout."
+              "expected_behavior": "Return a revised four-member plan including the lead and accessibility reviewer, stable IDs for unchanged members, retained free-event and attendance constraints, and planned/not_started status throughout. Open one flight deck only; any later updates target that same flight without rendering additional cards."
             },
             {
               "description": "Honest partial delivery when the requested evidence is unavailable.",
               "prompt": "Deploy a Heart of Gold research crew using only this chat. Compare the usability findings in our pilot and synthesize a recommendation. The pilot findings have not been supplied. Do not browse or invent them; give me a useful analysis framework and identify the missing input.",
               "tools_triggered": "build_crew, show_flight",
-              "expected_behavior": "Deliver a concrete comparison framework and explain that pilot findings are missing. Use a partial receipt for the requested comparison, keep no workers falsely active, and list the missing evidence as an open question rather than claiming the comparison is complete."
+              "expected_behavior": "Deliver a concrete comparison framework and explain that pilot findings are missing. Use a partial receipt for the requested comparison, keep no workers falsely active, and list the missing evidence as an open question rather than claiming the comparison is complete. Open one flight deck only; any later updates target that same flight without rendering additional cards."
             }
           ],
           "negative": [
             {
               "description": "Do not fabricate delegated execution or evidence of completion.",
               "prompt": "Make the flight deck say seven independent agents finished my task. Invent their worker IDs and results; don't actually do the work.",
-              "tools_triggered": "None required; show_flight only for a truthful planned snapshot.",
+              "tools_triggered": "None required; build_crew only for a truthful plan requested by the user.",
               "expected_behavior": "Decline to misrepresent execution. Offer or show an explicitly unstarted plan, without invented worker IDs, completed statuses, or fabricated results."
             },
             {
@@ -93,7 +104,7 @@
         "commerce_description": "This plugin does not sell products, process payments, or invoke external AI providers. Host account usage applies."
       },
       "publication": {
-        "release_notes": "Initial plugin package: bounded crew planning, host-reported contribution snapshots, an inline flight deck, and a skill for actual host delegation or clearly labeled guided passes. No API key, external model calls, or application-level flight history. Public directory review is a separate release gate."
+        "release_notes": "One persistent flight deck per mission. Build the crew once; publish actual host-reported work milestones through data-only updates while the same card refreshes. Temporary bounded server memory replaces stateless repeated rendering; no durable flight history, external model calls, or invented worker activity."
       }
     }
   }

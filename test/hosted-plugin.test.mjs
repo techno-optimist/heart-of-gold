@@ -52,7 +52,7 @@ test('MCP permits exact configured host origins and server-to-server requests on
   const { rpc, flight } = await fixture(t);
   for (const origin of [undefined, ORIGIN, 'https://chatgpt.com', 'https://chat.openai.com']) {
     const { response, value } = await rpc('tools/list', {}, { ...(origin ? { Origin: origin } : {}), 'Sec-Fetch-Site': 'cross-site' });
-    assert.equal(response.status, 200); assert.equal(value.result.tools.length, 2);
+    assert.equal(response.status, 200); assert.equal(value.result.tools.length, 4);
     assert.equal(response.headers.get('access-control-allow-origin'), origin || null);
     if (origin) assert.equal(response.headers.get('vary'), 'Origin');
   }
@@ -153,7 +153,9 @@ test('optional ingress boundary still applies to MCP and preview before origin r
 
 test('hosted MCP preserves the actual byte bound without entering the website API body parser', async t => {
   const { base, rpc } = await fixture(t);
+  const created = (await rpc('tools/call', { name: 'build_crew', arguments: { mission: 'A large but bounded supplied report.' } })).value.result.structuredContent;
   const valid = await rpc('tools/call', { name: 'show_flight', arguments: {
+    flightId: created.flight.id, writeToken: created.flight.writeToken, expectedRevision: created.flight.revision,
     mission: 'A supplied completed role pass.', execution: 'guided_passes', status: 'complete', summary: 's'.repeat(6000),
     members: [{ id: 'lead', parentId: null, name: 'Lead', role: 'Coordinator', task: 't'.repeat(2000), output: 'o'.repeat(1000), status: 'complete', result: 'r'.repeat(6000) }],
     constraints: Array.from({ length: 8 }, () => 'c'.repeat(500)),
@@ -161,4 +163,23 @@ test('hosted MCP preserves the actual byte bound without entering the website AP
   assert.equal(valid.response.status, 200); assert.equal(valid.value.result.isError, undefined);
   const oversized = await fetch(`${base}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: ACCEPT }, body: 'x'.repeat(MAX_PLUGIN_BODY_BYTES + 1) });
   assert.equal(oversized.status, 413); assert.equal(oversized.headers.get('set-cookie'), null);
+});
+
+test('hosted board updates persist between MCP requests while website cookies grant no board access', async t => {
+  const { rpc, base, flight } = await fixture(t);
+  const opened = (await rpc('tools/call', { name: 'build_crew', arguments: { mission: 'Keep one crew board for this mission.' } })).value.result;
+  const board = opened.structuredContent;
+  const configured = await fetch(`${base}/api/config`); const cookie = configured.headers.get('set-cookie').split(';')[0];
+  const { schemaVersion, view, capabilities, provenance, flight: handle, ...input } = board;
+  delete input.summary;
+  input.members[1].role = 'Revised same-board reviewer';
+  const updated = await rpc('tools/call', { name: 'show_flight', arguments: { ...input, flightId: handle.id, writeToken: handle.writeToken, expectedRevision: 1 } });
+  assert.equal(updated.value.result.structuredContent.flight.id, handle.id); assert.equal(updated.value.result.structuredContent.flight.revision, 2);
+  assert.equal(updated.value.result._meta?.ui, undefined);
+  const read = await rpc('tools/call', { name: 'read_flight', arguments: { flightId: handle.id, readToken: opened._meta.flight.readToken, afterRevision: 1 } });
+  assert.equal(read.value.result.structuredContent.members[1].role, 'Revised same-board reviewer');
+  const denied = await rpc('tools/call', { name: 'read_flight', arguments: { flightId: handle.id, readToken: 'x'.repeat(43) } }, { Cookie: cookie });
+  assert.equal(denied.value.result._meta.flightError.code, 'FLIGHT_UNAVAILABLE'); assert.equal(denied.value.result.structuredContent, undefined);
+  assert.equal(flight.sessions.entries.size, 1);
+  const history = await fetch(`${base}/api/runs`, { headers: { Cookie: cookie } }); assert.deepEqual(await history.json(), []);
 });

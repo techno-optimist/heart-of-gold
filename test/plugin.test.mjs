@@ -8,11 +8,15 @@ import { buildCrew, showFlight, flightSnapshotSchema, PRESETS, MAX_PLUGIN_BODY_B
 import { createPluginHandler, FLIGHT_RESOURCE_URI, FLIGHT_RESOURCE_MIME } from '../lib/plugin.mjs';
 
 const requestInput = snapshot => {
-  const { schemaVersion, view, capabilities, provenance, ...input } = snapshot;
+  const { schemaVersion, view, capabilities, provenance, flight, unchanged, ...input } = snapshot;
   if (!input.summary) delete input.summary;
   return input;
 };
 const plan = () => requestInput(buildCrew({ mission: 'Compare two approaches with evidence.', crewSize: 3 }));
+const writer = snapshot => ({ flightId: snapshot.flight.id, writeToken: snapshot.flight.writeToken, expectedRevision: snapshot.flight.revision });
+const reader = result => ({ flightId: result.structuredContent.flight.id, readToken: result._meta.flight.readToken });
+const draft = snapshot => ({ mission: snapshot.mission, deliverable: snapshot.deliverable, constraints: snapshot.constraints,
+  members: snapshot.members.map(({ id, parentId, name, role, task, output }) => ({ id, parentId, name, role, task, output })) });
 
 async function fixture(t, options = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'hog-plugin-'));
@@ -136,21 +140,24 @@ test('partial receipts do not claim continuing work', () => {
   assert.throws(() => showFlight(input)); input.members[0].status = 'failed'; assert.doesNotThrow(() => showFlight(input));
 });
 
-test('MCP initializes and advertises two no-auth read-only tools without session cookies', async t => {
+test('MCP creates only one render tool; updates are UI-less and app polling tools require capabilities', async t => {
   const { rpc } = await fixture(t);
   const initialized = await rpc('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'test', version: '1' } });
   assert.equal(initialized.response.status, 200); assert.equal(initialized.value.result.serverInfo.name, 'heart-of-gold');
   assert.equal(initialized.response.headers.get('mcp-session-id'), null); assert.equal(initialized.response.headers.get('set-cookie'), null);
   const listed = await rpc('tools/list');
-  assert.deepEqual(listed.value.result.tools.map(tool => tool.name), ['build_crew', 'show_flight']);
+  assert.deepEqual(listed.value.result.tools.map(tool => tool.name), ['build_crew', 'show_flight', 'read_flight', 'save_plan']);
   for (const tool of listed.value.result.tools) {
     assert.deepEqual(tool.securitySchemes, [{ type: 'noauth' }]);
-    assert.equal(tool.annotations.readOnlyHint, true); assert.equal(tool.annotations.openWorldHint, false);
-    assert.equal(tool._meta.ui.resourceUri, FLIGHT_RESOURCE_URI); assert(tool.outputSchema);
+    assert.equal(tool.annotations.readOnlyHint, tool.name === 'read_flight'); assert.equal(tool.annotations.openWorldHint, false);
+    assert.equal(tool.annotations.idempotentHint, tool.name === 'read_flight');
+    assert.equal(tool._meta.ui.resourceUri, tool.name === 'build_crew' ? FLIGHT_RESOURCE_URI : undefined); assert(tool.outputSchema);
+    assert.deepEqual(tool._meta.ui.visibility, ['read_flight', 'save_plan'].includes(tool.name) ? ['app'] : ['model']);
+    assert.equal(tool._meta['openai/outputTemplate'], undefined);
   }
 });
 
-test('MCP tool calls render supplied data without crossing visitor state or writing histories', async t => {
+test('MCP requests update the same board, isolate capabilities, and never write histories to disk', async t => {
   const { rpc, directory } = await fixture(t);
   const calls = await Promise.all(['PRIVATE-A', 'PRIVATE-B'].map(mission => rpc('tools/call', {
     name: 'build_crew', arguments: { mission, crewSize: 3 },
@@ -161,10 +168,66 @@ test('MCP tool calls render supplied data without crossing visitor state or writ
     assert.equal(snapshot.mission, index === 0 ? 'PRIVATE-A' : 'PRIVATE-B');
     assert(!JSON.stringify(snapshot).includes(index === 0 ? 'PRIVATE-B' : 'PRIVATE-A'));
     assert.equal(snapshot.capabilities.persistsHistory, false);
+    assert(snapshot.flight.writeToken); assert(call.value.result._meta.flight.readToken);
+    assert(!JSON.stringify(snapshot).includes(call.value.result._meta.flight.readToken));
+    assert(!JSON.stringify(call.value.result.content).includes(snapshot.flight.writeToken));
   }
-  const revised = await rpc('tools/call', { name: 'show_flight', arguments: requestInput(calls[0].value.result.structuredContent) });
-  assert.equal(revised.value.result.structuredContent.view, 'builder');
+  const a = calls[0].value.result, b = calls[1].value.result;
+  const input = requestInput(a.structuredContent); input.members[1].task = 'An updated assignment.';
+  const revised = await rpc('tools/call', { name: 'show_flight', arguments: { ...input, ...writer(a.structuredContent) } });
+  assert.equal(revised.value.result.structuredContent.updated, true);
+  assert.equal(revised.value.result.structuredContent.flight.id, a.structuredContent.flight.id);
+  assert.equal(revised.value.result.structuredContent.flight.revision, 2);
+  assert.equal(revised.value.result.structuredContent.members, undefined);
+  assert.equal(revised.value.result._meta?.ui, undefined);
+  const read = await rpc('tools/call', { name: 'read_flight', arguments: { ...reader(a), afterRevision: 1 } });
+  assert.equal(read.value.result.structuredContent.view, 'builder'); assert.equal(read.value.result.structuredContent.members[1].task, 'An updated assignment.');
+  assert.equal(read.value.result.structuredContent.flight.writeToken, undefined);
+  const noChange = await rpc('tools/call', { name: 'read_flight', arguments: { ...reader(a), afterRevision: 2 } });
+  assert.equal(noChange.value.result.structuredContent.unchanged, true); assert.equal(noChange.value.result.structuredContent.members, undefined);
+  const denied = await rpc('tools/call', { name: 'read_flight', arguments: { flightId: a.structuredContent.flight.id, readToken: b._meta.flight.readToken } });
+  assert.equal(denied.value.result._meta.flightError.code, 'FLIGHT_UNAVAILABLE'); assert.equal(denied.value.result.structuredContent, undefined);
+  const untouched = await rpc('tools/call', { name: 'read_flight', arguments: reader(b) });
+  assert.equal(untouched.value.result.structuredContent.flight.revision, 1); assert.equal(untouched.value.result.structuredContent.mission, 'PRIVATE-B');
   assert.deepEqual(await readdir(directory), ['flight-deck.html']);
+});
+
+test('saved UI drafts persist on the same board and stale writers receive authenticated recovery only', async t => {
+  const { rpc } = await fixture(t);
+  const created = (await rpc('tools/call', { name: 'build_crew', arguments: { mission: 'Review our welcome README.' } })).value.result;
+  const edited = draft(created.structuredContent); edited.members[1].role = 'Newcomer advocate'; edited.constraints = ['Do not browse.'];
+  const saved = await rpc('tools/call', { name: 'save_plan', arguments: { ...writer(created.structuredContent), plan: edited } });
+  assert.equal(saved.value.result.structuredContent.flight.revision, 2); assert.equal(saved.value.result.structuredContent.execution, 'not_started');
+  assert.equal(saved.value.result.structuredContent.members[1].role, 'Newcomer advocate'); assert.equal(saved.value.result.structuredContent.flight.writeToken, undefined);
+  const stale = await rpc('tools/call', { name: 'show_flight', arguments: { ...requestInput(created.structuredContent), ...writer(created.structuredContent) } });
+  assert.equal(stale.value.result.isError, true); assert.equal(stale.value.result._meta.flightError.code, 'FLIGHT_CONFLICT');
+  assert.equal(stale.value.result.structuredContent.flight.revision, 2);
+  assert.equal(stale.value.result.structuredContent.currentSnapshot.members[1].role, 'Newcomer advocate');
+  assert.deepEqual(stale.value.result.structuredContent.currentSnapshot.constraints, ['Do not browse.']);
+  assert(!JSON.stringify(stale.value.result).includes(created.structuredContent.flight.writeToken));
+  const invalid = await rpc('tools/call', { name: 'show_flight', arguments: { ...requestInput(created.structuredContent), ...writer(created.structuredContent), writeToken: 'x'.repeat(43) } });
+  assert.equal(invalid.value.result._meta.flightError.code, 'FLIGHT_UNAVAILABLE'); assert.equal(invalid.value.result.structuredContent, undefined);
+  const working = requestInput(saved.value.result.structuredContent); working.execution = 'guided_passes'; working.status = 'working'; working.members[0].status = 'working';
+  const updated = await rpc('tools/call', { name: 'show_flight', arguments: { ...working, ...writer(created.structuredContent), expectedRevision: 2 } });
+  assert.equal(updated.value.result.structuredContent.flight.revision, 3);
+  const busy = await rpc('tools/call', { name: 'save_plan', arguments: { ...writer(created.structuredContent), expectedRevision: 3, plan: edited } });
+  assert.equal(busy.value.result._meta.flightError.code, 'FLIGHT_BUSY');
+});
+
+test('board expiration is fixed across MCP requests and only explicit valid capabilities can poll', async t => {
+  let now = 0;
+  const { rpc } = await fixture(t, { storeOptions: { now: () => now, ttlMs: 1000 } });
+  const created = (await rpc('tools/call', { name: 'build_crew', arguments: { mission: 'An expiring plan.' } })).value.result;
+  const beforeExpiry = created.structuredContent.flight.expiresAt;
+  now = 999;
+  const read = await rpc('tools/call', { name: 'read_flight', arguments: reader(created) });
+  assert.equal(read.value.result.structuredContent.flight.expiresAt, beforeExpiry);
+  now = 1000;
+  const expired = await rpc('tools/call', { name: 'read_flight', arguments: reader(created) });
+  assert.equal(expired.value.result._meta.flightError.code, 'FLIGHT_UNAVAILABLE');
+  assert.equal(expired.value.result.structuredContent, undefined);
+  const missing = await rpc('tools/call', { name: 'read_flight', arguments: { flightId: created.structuredContent.flight.id } });
+  assert.equal(missing.value.result.isError, true);
 });
 
 test('MCP resource is self-contained with no network domains', async t => {
@@ -180,8 +243,9 @@ test('MCP resource is self-contained with no network domains', async t => {
 
 test('MCP malformed tool arguments fail instead of rendering invented execution', async t => {
   const { rpc } = await fixture(t);
+  const created = (await rpc('tools/call', { name: 'build_crew', arguments: { mission: 'A validation plan.' } })).value.result.structuredContent;
   const bad = plan(); bad.execution = 'native_agents'; bad.status = 'working'; bad.members[1].status = 'working';
-  const result = await rpc('tools/call', { name: 'show_flight', arguments: bad });
+  const result = await rpc('tools/call', { name: 'show_flight', arguments: { ...bad, ...writer(created) } });
   assert.equal(result.value.result.isError, true); assert.equal(result.value.result.structuredContent, undefined);
   const unknown = await rpc('tools/call', { name: 'spawn_agents', arguments: {} });
   assert(unknown.value.error || unknown.value.result?.isError);

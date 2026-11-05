@@ -12,14 +12,15 @@
     <div class="preview-banner" id="preview-banner" hidden><strong>Browser preview</strong><span>Build a crew here. Deployment needs a connected chat.</span></div>
     <header class="masthead">
       <div class="context-label"><span class="gold-mark" aria-hidden="true">↗</span><span id="execution-label">Preparing the crew</span></div>
-      <span class="snapshot-label" id="snapshot-label">Waiting for the chat host</span>
+      <div class="sync-controls"><span class="snapshot-label" id="snapshot-label">Waiting for the chat host</span><button class="text-button refresh-button" id="refresh-flight" aria-label="Refresh this flight" hidden>Refresh</button></div>
     </header>
     <section class="mission-block">
-      <div class="eyebrow" id="eyebrow">DON’T PANIC. GIVE EVERY CURSOR A PURPOSE.</div>
+      <div class="eyebrow" id="eyebrow">ONE CREW. ONE FLIGHT DECK.</div>
       <h1 id="mission-title">A small crew. An improbable result.</h1>
       <details class="full-mission" id="full-mission" hidden><summary>Read full mission</summary><p id="full-mission-text"></p></details>
       <p id="mission-note">Your mission and crew will arrive from the conversation.</p>
     </section>
+    <div class="flight-status" id="flight-status" hidden><span id="work-counts"></span><span id="milestone" role="status" aria-live="polite"></span></div>
     <div class="workspace">
       <section class="constellation-wrap" aria-labelledby="constellation-title">
         <div class="map-heading"><h2 id="constellation-title">The constellation</h2><span id="crew-count">0 / 7 roles</span></div>
@@ -32,7 +33,7 @@
         <div class="map-caption"><span class="path-key" aria-hidden="true"></span><span id="map-caption">A branch is a responsibility. A line shows who it reports to.</span></div>
       </section>
       <section class="inspector" id="inspector" aria-labelledby="inspector-title" hidden>
-        <div class="inspector-top"><span class="eyebrow" id="selected-position">CAPTAIN’S CHAIR</span><span class="status-pill" id="selected-status">Planned</span></div>
+        <div class="inspector-top"><span class="eyebrow" id="selected-position">CAPTAIN’S CHAIR</span><span class="status-pill" id="selected-status">Planned</span><button id="close-inspector" class="text-button close-inspector" aria-label="Close role details">×</button></div>
         <h2 id="inspector-title"></h2><p class="role-line" id="selected-role"></p>
         <div id="read-contract"><div class="contract-item"><h3>The assignment</h3><p id="selected-task"></p></div><div class="contract-item output-contract"><h3>Bring back</h3><p id="selected-output"></p></div></div>
         <form id="role-form" class="role-form" hidden>
@@ -49,7 +50,7 @@
     <section class="mission-settings" id="mission-settings" hidden>
       <form id="mission-form"><label>Mission<textarea id="mission-input" maxlength="6000" rows="3" required></textarea></label><label>Constraints <span class="field-help">One per line · up to 8</span><textarea id="constraints-input" rows="3" maxlength="4007"></textarea></label><div class="form-actions"><button type="submit" class="secondary">Save mission</button><button type="button" class="text-button" id="cancel-mission">Cancel</button></div></form>
     </section>
-    <section class="deliverable" id="deliverable-section" hidden><div class="eyebrow">WHAT THE CREW BROUGHT BACK</div><h2>The result</h2><p id="report-summary"></p><pre id="deliverable-content"></pre><div id="questions-section" hidden><h3>Still worth asking</h3><ul id="open-questions"></ul></div></section>
+    <details class="deliverable result-drawer" id="deliverable-section" hidden><summary><span>What the crew brought back</span><span id="result-state">Result</span></summary><div class="result-body"><p id="report-summary"></p><pre id="deliverable-content"></pre><div id="questions-section" hidden><h3>Still worth asking</h3><ul id="open-questions"></ul></div></div></details>
     <div class="pending-snapshot" id="pending-snapshot" hidden><p>A new host snapshot arrived. Your draft is still here.</p><button class="text-button" id="load-snapshot">Use new snapshot</button></div>
     <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
     <footer class="flight-controls">

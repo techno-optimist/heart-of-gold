@@ -24,7 +24,7 @@ The standalone alpha produces text deliverables. The chat plugin uses the tools 
 
 ## Deploy the drive in chat
 
-The [Heart of Gold plugin](docs/plugin.md) combines an editable cursor constellation with a crew workflow. Shape assignments, branch specialists, deploy the plan into the current conversation, then inspect contributions and challenge a branch. The chat supplies the intelligence; our stateless service renders the plan and reported results. Mission and contribution summaries sent to the tools pass through ProjectForty2 temporarily. See the [plugin privacy notice](https://projectforty2.ai/heartofgold/plugin-privacy.html).
+The [Heart of Gold plugin](docs/plugin.md) keeps one cursor constellation in the chat while the crew works. Shape assignments, branch specialists, deploy the plan, then watch actual host-reported starts and contributions update that same deck. The chat supplies the intelligence; ProjectForty2 holds the latest snapshot temporarily in server memory so the card can refresh. Flight access expires after two hours, with no durable history. See the [plugin privacy notice](https://projectforty2.ai/heartofgold/plugin-privacy.html).
 
 [Try the visual builder](https://projectforty2.ai/heartofgold/plugin-preview/) · [Install and use](docs/plugin.md) · [Public review checklist](docs/plugin-review.md)
 

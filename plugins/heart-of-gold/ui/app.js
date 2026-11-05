@@ -9,10 +9,117 @@ const executions = new Set(['not_started', 'guided_passes', 'native_agents']);
 const clip = (value, max = 2000) => typeof value === 'string' ? value.slice(0, max) : '';
 const label = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const isPreview = window.parent === window;
-const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.1.0' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
-const state = { snapshot: null, selectedId: null, dirty: false, editing: false, missionEditing: false, pending: null, receivedAt: null, connected: false, canMessage: false, busy: false, sentRevision: null, revision: 0, hostContext: {}, lastMessage: '' };
+const app = isPreview ? null : new App({ name: 'Heart of Gold flight deck', version: '0.2.0' }, { availableDisplayModes: ['inline', 'fullscreen'] }, { autoResize: true });
+const state = { snapshot: null, selectedId: null, dirty: false, editing: false, missionEditing: false, pending: null, receivedAt: null, connected: false, canMessage: false, busy: false, sentRevision: null, revision: 0, hostContext: {}, lastMessage: '', flight: null, remoteSignature: '', sync: 'waiting', expired: false, polling: false, pollFailures: 0, unchangedReads: 0, awaitingUpdate: false, milestone: '', evidenceKey: '', questionsKey: '', tornDown: false, cached: false, authoritativeSnapshot: null, authoritativeReceivedAt: null };
 const cursorNodes = new Map();
 let displayedMission = '';
+let pollTimer;
+
+function writeText(id, value) { if ($(id).textContent !== value) $(id).textContent = value; }
+function terminal(snapshot = state.snapshot) { return ['complete', 'partial'].includes(snapshot?.status); }
+function persistView() {
+  const host = window.openai;
+  if (!host?.setWidgetState || !state.flight || !state.authoritativeSnapshot || state.cached) return;
+  try {
+    const prior = host.widgetState && typeof host.widgetState === 'object' ? host.widgetState : {};
+    const privateContent = prior.privateContent && typeof prior.privateContent === 'object' ? prior.privateContent : {};
+    // Preserve modelContent, imageIds, and unrelated state. Capabilities never
+    // enter this optional display cache or any browser storage.
+    host.setWidgetState({ ...prior, privateContent: { ...privateContent, heartOfGold: { version: 1, flightId: state.flight.id, revision: state.flight.revision, snapshot: state.authoritativeSnapshot, receivedAt: state.authoritativeReceivedAt, selectedId: state.selectedId, resultOpen: $('deliverable-section').open, missionOpen: $('full-mission').open } } });
+  } catch { /* Optional host persistence must not interrupt the flight. */ }
+}
+function receiveSnapshot(input, force = false, initial = false) {
+  const snapshot = normalizeSnapshot(input);
+  state.authoritativeSnapshot = snapshot; state.authoritativeReceivedAt = new Date().toISOString();
+  if (initial && !state.snapshot && state.flight) {
+    try {
+      const cached = window.openai?.widgetState?.privateContent?.heartOfGold;
+      if (cached?.version === 1 && cached.flightId === state.flight.id && Number.isInteger(cached.revision) && cached.revision >= state.flight.revision) {
+        state.selectedId = typeof cached.selectedId === 'string' ? cached.selectedId : null;
+        $('deliverable-section').open = cached.resultOpen === true;
+        if (cached.revision > state.flight.revision) {
+          state.cached = true; acceptSnapshot(normalizeSnapshot(cached.snapshot), true);
+          const received = new Date(cached.receivedAt); if (Number.isFinite(received.getTime())) state.receivedAt = received;
+          $('full-mission').open = cached.missionOpen === true; render(); return;
+        }
+      }
+    } catch { /* Ignore an invalid or incompatible display cache. */ }
+  }
+  state.cached = false; acceptSnapshot(snapshot, force); render(); persistView();
+}
+function resultError(result) {
+  const detail = result?._meta?.flightError;
+  const text = result?.content?.find((item) => item.type === 'text')?.text;
+  const error = new Error(clip(detail?.message || text || 'The flight service could not complete that request.', 300));
+  error.code = detail?.code || 'FLIGHT_REQUEST_FAILED'; return error;
+}
+function rememberFlight(result) {
+  const flight = result?.structuredContent?.flight;
+  if (!flight) return;
+  if (state.flight?.id && state.flight.id !== flight.id) throw new Error('This update belongs to a different flight.');
+  if (typeof flight.id !== 'string' || !Number.isInteger(flight.revision) || !Number.isFinite(Date.parse(flight.expiresAt))) throw new Error('The service returned incomplete flight metadata.');
+  if (state.flight && flight.revision < state.flight.revision) return false;
+  const readToken = result?._meta?.flight?.readToken;
+  state.flight = { ...state.flight, id: flight.id, revision: flight.revision, expiresAt: flight.expiresAt, ...(typeof flight.writeToken === 'string' ? { writeToken: flight.writeToken } : {}), ...(typeof readToken === 'string' ? { readToken } : {}) };
+  return true;
+}
+function describeMilestone(previous, next) {
+  if (next.status === 'complete') return 'Crew complete. The result is ready below.';
+  if (next.status === 'partial') return 'Partial result reported. Open the result for the remaining gaps.';
+  const changed = next.members.filter((member) => previous?.members.find((old) => old.id === member.id)?.status !== member.status);
+  const complete = changed.filter((member) => member.status === 'complete');
+  if (complete.length) return complete.length === 1 ? `${complete[0].name} returned a contribution.` : `${complete.length} contributions returned.`;
+  const active = changed.filter((member) => member.status === 'working');
+  if (active.length) return active.length === 1 ? `${active[0].name} is working · host reported.` : `${active.length} roles working · host reported.`;
+  const failed = changed.find((member) => ['failed', 'cancelled'].includes(member.status));
+  if (failed) return `${failed.name} · ${failed.status}.`;
+  return next.execution === 'not_started' ? 'Crew assembled. Ready for departure.' : state.milestone || 'Waiting for the next reported milestone.';
+}
+function refreshSyncLabel() {
+  if (!state.snapshot) return;
+  const time = state.receivedAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '—';
+  let text = state.dirty ? 'Draft edited' : `Last report ${time}`;
+  if (isPreview) text = 'Browser preview';
+  else if (state.expired) text = 'Flight unavailable · last report retained';
+  else if (state.cached) text = 'Saved report · checking latest state';
+  else if (state.sync === 'reconnecting') text = 'Refresh interrupted · retrying';
+  else if (document.hidden) text = 'Updates paused while hidden';
+  else if (state.flight && !terminal()) text = state.dirty ? 'Draft edited · board watching' : `Watching · ${time}`;
+  writeText('snapshot-label', text);
+  $('deck').dataset.sync = document.hidden ? 'paused' : state.sync;
+  $('deck').dataset.fresh = String(!document.hidden && !state.expired && Date.now() - (state.receivedAt?.getTime() || 0) < 30000);
+  $('refresh-flight').hidden = !state.flight;
+  $('refresh-flight').disabled = state.expired || !state.connected || state.polling || state.busy;
+}
+function stopPolling() { clearTimeout(pollTimer); pollTimer = undefined; }
+function schedulePoll(delay) {
+  stopPolling();
+  if (isPreview || state.tornDown || !state.connected || !state.flight?.readToken || !app.getHostCapabilities()?.serverTools || state.expired || document.hidden) return;
+  const wait = delay ?? (state.pollFailures ? Math.min(30000, 3000 * 2 ** state.pollFailures) : terminal() && !state.awaitingUpdate ? 15000 : Math.min(15000, 3000 * (1 + Math.floor(state.unchangedReads / 4))));
+  pollTimer = setTimeout(() => { pollFlight(); }, wait);
+}
+async function pollFlight(manual = false) {
+  if (!state.flight?.readToken || state.expired || !state.connected || state.polling || state.tornDown || document.hidden) return;
+  if (Date.now() >= Date.parse(state.flight.expiresAt)) { state.expired = true; state.sync = 'unavailable'; stopPolling(); render(); return; }
+  if (state.busy) { schedulePoll(3000); return; }
+  state.polling = true; refreshSyncLabel();
+  try {
+    const revision = state.flight.revision;
+    const result = await app.callServerTool({ name: 'read_flight', arguments: { flightId: state.flight.id, readToken: state.flight.readToken, afterRevision: revision } }, { timeout: 10000 });
+    if (state.tornDown) return;
+    if (result?.isError) throw resultError(result);
+    if (rememberFlight(result) === false) return;
+    state.pollFailures = 0; state.sync = 'watching';
+    if (result.structuredContent?.unchanged) { state.unchangedReads += 1; if (state.cached && state.authoritativeSnapshot) receiveSnapshot(state.authoritativeSnapshot, true); }
+    else { state.unchangedReads = 0; if (state.flight.revision > revision) state.awaitingUpdate = false; receiveSnapshot(result.structuredContent); }
+  } catch (error) {
+    if (error.code === 'FLIGHT_UNAVAILABLE') { state.expired = true; state.sync = 'unavailable'; notify('This temporary flight has expired or is unavailable. The last report remains here; no completion has been inferred.', 'error'); }
+    else { state.pollFailures += 1; state.sync = 'reconnecting'; if (manual) notify('The flight could not refresh. Your draft and last report are still here.', 'error'); }
+  } finally { state.polling = false; if (state.expired) render(); else refreshSyncLabel(); schedulePoll(); }
+}
+
+document.addEventListener('visibilitychange', () => { if (document.hidden) stopPolling(); else schedulePoll(0); refreshSyncLabel(); });
+$('refresh-flight').addEventListener('click', () => { stopPolling(); pollFlight(true); });
 
 function renderMission(mission) {
   const characters = Array.from(mission);
@@ -95,10 +202,14 @@ function descendantIds(id, members = state.snapshot.members) { const ids = new S
 function acceptSnapshot(input, force = false) {
   try {
     const snapshot = normalizeSnapshot(input);
-    if ((state.dirty || state.editing || state.missionEditing) && !force) { state.pending = snapshot; $('pending-snapshot').hidden = false; return; }
+    const signature = JSON.stringify(snapshot);
+    if (!force && signature === state.remoteSignature) { refreshSyncLabel(); return; }
+    state.remoteSignature = signature;
+    if ((state.dirty || state.editing || state.missionEditing) && !force) { state.pending = snapshot; $('pending-snapshot').hidden = false; refreshSyncLabel(); return; }
+    state.milestone = describeMilestone(state.snapshot, snapshot);
     state.snapshot = snapshot; state.receivedAt = new Date(); state.dirty = false; state.editing = false; state.missionEditing = false; state.pending = null; state.revision += 1; state.sentRevision = null;
-    if (!snapshot.members.some((member) => member.id === state.selectedId)) state.selectedId = snapshot.view === 'builder' && state.hostContext.displayMode !== 'fullscreen' ? null : snapshot.members.find((member) => member.parentId == null).id;
-    $('pending-snapshot').hidden = true; $('message-preview').hidden = true; notify(''); render();
+    if (!snapshot.members.some((member) => member.id === state.selectedId)) state.selectedId = null;
+    $('pending-snapshot').hidden = true; $('message-preview').hidden = true; render(); schedulePoll();
   } catch (error) { notify(error.message, 'error'); }
 }
 
@@ -161,15 +272,18 @@ function renderMap() {
 function selectMember(id) {
   if (state.editing && state.selectedId !== id) { notify('Save or cancel the role edits before selecting another cursor.'); return; }
   state.selectedId = id; renderMap(); renderInspector();
-  if (state.connected && app.getHostCapabilities()?.updateModelContext) app.updateModelContext({ structuredContent: { selectedMemberId: id, mission: state.snapshot.mission, role: selected()?.role, selectionOnly: true } }, { timeout: 3000 }).catch(() => {});
+  persistView();
+  // Selection is presentation state. Deployment and challenges send their own
+  // complete context so a later click cannot overwrite a pending command.
 }
 
 function renderInspector() {
   const member = selected(); $('inspector').hidden = !member; if (!member) return;
   $('selected-position').textContent = member.parentId == null ? 'CAPTAIN’S CHAIR' : `BRANCH ${depthOf(member)} / ${isBuilder() ? 'OUTPUT CONTRACT' : 'HOST-REPORTED WORK'}`;
   $('selected-status').textContent = label(member.status);
-  $('inspector-title').textContent = member.name; $('selected-role').textContent = member.role;
-  $('selected-task').textContent = member.task; $('selected-output').textContent = member.output;
+  writeText('inspector-title', member.name); writeText('selected-role', member.role);
+  writeText('selected-task', member.task); writeText('selected-output', member.output);
+  $('close-inspector').disabled = state.editing;
   $('read-contract').hidden = state.editing; $('role-form').hidden = !state.editing; $('role-actions').hidden = !isBuilder() || state.editing;
   $('edit-role').disabled = state.busy;
   $('branch-role').disabled = state.busy || state.snapshot.members.length >= 7 || depthOf(member) >= 2;
@@ -179,39 +293,54 @@ function renderInspector() {
   $('remove-role').textContent = descendants.size > 1 ? `Remove branch (${descendants.size})` : 'Remove';
   $('remove-role').title = member.parentId == null ? 'Every crew needs its lead role.' : 'Remove this role and its descendants from the draft';
   $('contribution').hidden = isBuilder();
-  $('selected-result').textContent = member.result || 'No contribution was included in this snapshot.';
-  $('worker-id').textContent = member.workerId ? `Host-reported worker: ${member.workerId}` : state.snapshot.execution === 'guided_passes' ? 'A role pass by the chat host; not an independent worker.' : '';
-  $('evidence-list').replaceChildren(...member.evidence.map((item) => {
+  writeText('selected-result', member.result || 'No contribution has been reported yet.');
+  writeText('worker-id', member.workerId ? `Host-reported worker: ${member.workerId}` : state.snapshot.execution === 'guided_passes' ? 'A role pass by the chat host; not an independent worker.' : '');
+  const evidenceKey = JSON.stringify([member.id, member.evidence]);
+  if (state.evidenceKey !== evidenceKey) $('evidence-list').replaceChildren(...member.evidence.map((item) => {
     const li = el('li'); const link = el('a', '', item.label); link.href = item.url; link.target = '_blank'; link.rel = 'noopener noreferrer';
     link.addEventListener('click', (event) => { if (!state.connected) return; event.preventDefault(); app.openLink({ url: item.url }).catch(() => notify('The host could not open this evidence link.', 'error')); }); li.append(link); return li;
   }));
-  $('challenge-branch').disabled = state.busy || (!isPreview && (!state.connected || !state.canMessage));
+  state.evidenceKey = evidenceKey;
+  $('challenge-branch').disabled = state.busy || state.expired || state.cached || (!isPreview && (!state.connected || !state.canMessage || !state.flight?.writeToken));
 }
 
 function render() {
   const snapshot = state.snapshot; if (!snapshot) { renderMap(); return; }
   const executionLabels = { not_started: 'Chat-led crew · planned', guided_passes: 'Chat-led crew · role passes', native_agents: 'Native workers · host-reported' };
   $('execution-label').textContent = executionLabels[snapshot.execution];
-  $('snapshot-label').textContent = state.dirty ? 'Edited draft · not deployed' : `${isPreview ? 'Preview loaded' : 'Snapshot received'} ${state.receivedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  $('eyebrow').textContent = isBuilder() ? 'DON’T PANIC. GIVE EVERY CURSOR A PURPOSE.' : 'FOLLOW THE WORK. QUESTION THE ANSWER.';
+  refreshSyncLabel();
+  $('deck').dataset.phase = snapshot.status;
+  writeText('eyebrow', 'ONE CREW. ONE FLIGHT DECK.');
   renderMission(snapshot.mission);
-  $('mission-note').textContent = isBuilder() ? 'Shape the crew. Give each role something useful to bring back.' : 'A snapshot of reported contributions. Select a cursor to inspect its work.';
-  $('map-caption').textContent = isBuilder() ? 'Planned responsibilities. No work has started.' : 'Lines show task relationships. Status is reported by the chat host.';
+  writeText('mission-note', isBuilder() ? 'Select a cursor to shape its assignment.' : 'Select a cursor to inspect its contribution.');
+  writeText('map-caption', isBuilder() ? 'Planned responsibilities. No work has started.' : 'Activity follows host-reported milestones, not independent telemetry.');
+  const working = snapshot.members.filter((member) => member.status === 'working').length;
+  const completed = snapshot.members.filter((member) => member.status === 'complete').length;
+  $('flight-status').hidden = false;
+  writeText('work-counts', snapshot.execution === 'not_started' ? `${snapshot.members.length} roles · ready` : `${completed}/${snapshot.members.length} complete${working ? ` · ${working} working` : ''}`);
+  writeText('milestone', state.milestone);
   renderMap(); renderInspector();
   $('mission-settings').hidden = !state.missionEditing;
   $('edit-mission').disabled = !isBuilder() || state.busy || state.editing;
   $('edit-mission').hidden = !isBuilder();
   $('deploy').hidden = !isBuilder();
-  $('deploy').disabled = ((!state.connected || !state.canMessage) && !isPreview) || state.busy || state.editing || state.missionEditing || state.sentRevision === state.revision;
+  $('deploy').disabled = ((!state.connected || !state.canMessage || !state.flight?.writeToken) && !isPreview) || state.expired || state.cached || state.busy || state.editing || state.missionEditing || !!state.pending || state.sentRevision === state.revision;
   $('deploy').textContent = state.busy ? 'Sending to the chat…' : state.sentRevision === state.revision ? 'Sent to the chat ✓' : 'Deploy the drive ↗';
-  $('fork-plan').hidden = isBuilder(); $('fork-plan').disabled = state.busy;
-  $('deliverable-section').hidden = isBuilder();
-  $('report-summary').textContent = snapshot.deliverable ? `Requested deliverable: ${snapshot.deliverable}` : '';
-  $('deliverable-content').textContent = snapshot.summary || 'The host has not included a final synthesis in this snapshot. Inspect the reported contributions above.';
+  $('fork-plan').hidden = isBuilder() || !terminal(); $('fork-plan').disabled = state.busy || state.expired || state.cached;
+  $('deliverable-section').hidden = isBuilder() || (!snapshot.summary && !snapshot.members.some((member) => member.result));
+  writeText('result-state', snapshot.status === 'complete' ? 'Complete' : snapshot.status === 'partial' ? 'Partial result' : 'In progress');
+  writeText('report-summary', snapshot.deliverable ? `Requested deliverable: ${snapshot.deliverable}` : '');
+  writeText('deliverable-content', snapshot.summary || 'The final synthesis has not been reported yet. Select a cursor to read its contribution.');
   $('questions-section').hidden = !snapshot.openQuestions.length;
-  $('open-questions').replaceChildren(...snapshot.openQuestions.map((question) => el('li', '', question)));
-  const truth = isBuilder() ? 'Deploy sends this plan into your chat. The host uses its available capabilities; this plugin does not run models or create independent agents.' : 'Reported by the chat host. Not independently verified. This view does not subscribe to background work or retain a flight history.';
-  $('truth-note').textContent = state.connected && !state.canMessage ? `This host cannot receive messages from the flight deck. Ask it to run or challenge the crew directly in the conversation. ${truth}` : truth;
+  const questionsKey = JSON.stringify(snapshot.openQuestions);
+  if (state.questionsKey !== questionsKey) $('open-questions').replaceChildren(...snapshot.openQuestions.map((question) => el('li', '', question)));
+  state.questionsKey = questionsKey;
+  let truth = 'The chat does the work. This deck follows reported milestones; it does not create agents or call models.';
+  if (state.expired) truth = 'This temporary flight is unavailable. The last report is preserved; ask the chat to open a new flight when needed.';
+  else if (state.cached) truth = 'Showing a saved display of this flight. Its state must be checked before sending another request.';
+  else if (!isPreview && state.connected && !state.flight) truth = 'This older snapshot is static. Ask the chat to open a new persistent flight deck.';
+  else if (state.connected && !state.canMessage) truth = 'This host cannot receive messages from the deck. Ask it to run or challenge the crew directly in the conversation.';
+  writeText('truth-note', truth);
   $('limits-note').textContent = snapshot.constraints.length ? `${snapshot.members.length} roles · ${snapshot.constraints.length} constraints · 2 branch levels max` : '7 roles maximum · 2 branch levels';
 }
 
@@ -236,6 +365,9 @@ $('role-form').addEventListener('submit', (event) => {
 });
 $('edit-role').addEventListener('click', startRoleEdit);
 $('cancel-edit').addEventListener('click', () => { state.editing = false; render(); $('edit-role').focus(); });
+$('close-inspector').addEventListener('click', () => { if (state.editing) return; const id = state.selectedId; state.selectedId = null; renderMap(); renderInspector(); persistView(); cursorNodes.get(id)?.focus(); });
+$('deliverable-section').addEventListener('toggle', persistView);
+$('full-mission').addEventListener('toggle', persistView);
 $('branch-role').addEventListener('click', () => {
   const member = selected(); if (!isBuilder() || !member || state.snapshot.members.length >= 7 || depthOf(member) >= 2) return;
   const usedNames = new Set(state.snapshot.members.map((item) => item.name));
@@ -261,41 +393,54 @@ async function sendToChat(message, context, purpose) {
   state.lastMessage = message;
   if (isPreview) {
     $('message-preview-content').textContent = message; $('message-preview').hidden = false;
-    notify('Browser preview: the departure message is shown below. Nothing was sent.');
+    notify('Preview only: the short chat message is shown below. The crew context is attached privately by a connected host. Nothing was sent.');
     return false;
   }
-  if (!state.connected || !state.canMessage) { notify('This host cannot accept a message from the flight deck. Ask it to execute the crew in the conversation.', 'error'); return false; }
-  state.busy = true; render(); notify('');
+  if (!state.connected || !state.canMessage || !state.flight?.writeToken || state.expired) { notify('This flight cannot send a new request. Use the current conversation to continue the work.', 'error'); return false; }
+  if (!app.getHostCapabilities()?.updateModelContext) { notify('This host cannot attach the crew context. Nothing was sent; continue in the conversation.', 'error'); return false; }
+  state.busy = true; stopPolling(); render(); notify('');
   try {
-    // The complete plan is also in the user message; context support is optional.
-    try { if (app.getHostCapabilities()?.updateModelContext) await app.updateModelContext({ structuredContent: context }, { timeout: 3000 }); } catch { /* Message remains self-contained. */ }
+    const attached = typeof context === 'function' ? await context() : context;
+    // Context is mandatory: never send an incomplete command or spill the
+    // serialized crew and capabilities into visible chat as a fallback.
+    try {
+      const updated = await app.updateModelContext({ structuredContent: attached }, { timeout: 6000 });
+      if (updated?.isError) throw new Error('Context rejected.');
+    } catch { throw new Error('The crew context could not reach the chat. Nothing was sent; your plan is preserved.'); }
     const result = await app.sendMessage({ role: 'user', content: [{ type: 'text', text: message }] }, { timeout: 15000 });
     if (result?.isError) throw new Error('The host declined the message. Your draft is still here.');
-    notify(purpose === 'deploy' ? 'Plan sent. The chat host will decide how to execute it with the capabilities available in this conversation.' : 'The challenge was sent to the conversation.');
+    state.awaitingUpdate = true; state.unchangedReads = 0;
+    state.milestone = purpose === 'deploy' ? 'Deployed to the chat. Waiting for its first report.' : 'Challenge sent. Waiting for the revised report.';
+    notify('');
     return true;
-  } catch (error) { notify(`Could not send to the chat. ${clip(error?.message, 220) || 'Try again from the conversation.'}`, 'error'); return false; }
-  finally { state.busy = false; render(); }
+  } catch (error) {
+    if (error.code === 'FLIGHT_UNAVAILABLE') { state.expired = true; state.sync = 'unavailable'; }
+    if (error.code === 'FLIGHT_CONFLICT' || error.code === 'FLIGHT_BUSY') notify('The flight changed while this draft was open. Refresh the latest report before deploying; your edits are preserved.', 'error');
+    else notify(`Could not send to the chat. ${clip(error?.message, 240) || 'Try again from the conversation.'}`, 'error');
+    return false;
+  } finally { state.busy = false; render(); schedulePoll(0); }
 }
 
 $('deploy').addEventListener('click', async () => {
   if (!isBuilder() || state.editing || state.missionEditing) return;
   try {
     const plan = crewPlan(state.snapshot);
-    const message = `Deploy the Heart of Gold crew below in this conversation. Complete the mission using the capabilities actually available here. Use native delegation only if this host provides it; otherwise perform clearly labelled sequential role passes. A role is not proof of an independent agent. Follow the task and output contracts, then synthesize a useful deliverable. Use show_flight to present actual observed contributions, results, evidence links where available, and unresolved questions. Report worker IDs only for workers actually created. Do not invent activity or claim background execution.\n\nCrew plan:\n${JSON.stringify(plan, null, 2)}`;
-    const revision = state.revision;
-    if (await sendToChat(message, { crewPlan: plan, requestedAction: 'deploy' }, 'deploy')) {
-      state.sentRevision = revision;
-      if (state.revision === revision) state.dirty = false;
-      if (state.pending && !state.dirty) acceptSnapshot(state.pending, true); else render();
+    const message = 'Deploy the drive with this crew. Keep all progress in the existing flight deck.';
+    if (await sendToChat(message, async () => {
+      const saved = await app.callServerTool({ name: 'save_plan', arguments: { flightId: state.flight.id, writeToken: state.flight.writeToken, expectedRevision: state.flight.revision, plan: { mission: plan.mission, deliverable: plan.deliverable, constraints: plan.constraints, members: plan.members } } }, { timeout: 10000 });
+      if (saved?.isError) throw resultError(saved);
+      rememberFlight(saved); receiveSnapshot(saved.structuredContent, true);
+      return { crewPlan: crewPlan(state.snapshot), flightId: state.flight.id, writeToken: state.flight.writeToken, expectedRevision: state.flight.revision, requestedAction: 'deploy', progressInstructions: 'Reuse this flight. Use show_flight for actual reported milestones; do not call build_crew again. Execute only with available host capabilities, using guided passes when native delegation is absent.' };
+    }, 'deploy')) {
+      state.sentRevision = state.revision; state.dirty = false; render();
     }
   } catch (error) { notify(error.message, 'error'); }
 });
 $('challenge-branch').addEventListener('click', async () => {
   const member = selected(); if (!member) return;
-  const focus = { mission: state.snapshot.mission, member: { id: member.id, name: member.name, role: member.role, task: member.task, output: member.output, result: member.result, evidence: member.evidence }, constraints: state.snapshot.constraints };
-  await sendToChat(`Challenge this Heart of Gold contribution. Examine its assumptions, identify the strongest counterargument, and revise the deliverable where warranted. Verify claims with available tools when needed; distinguish reported evidence from facts you checked. Show an updated flight snapshot after the work.\n\nSelected branch:\n${JSON.stringify(focus, null, 2)}`, { challengedBranch: focus }, 'challenge');
+  await sendToChat(`Challenge ${member.name}’s contribution and update this flight deck.`, () => ({ flightId: state.flight.id, writeToken: state.flight.writeToken, expectedRevision: state.flight.revision, requestedAction: 'challenge', selectedMemberId: member.id, flightSnapshot: state.snapshot, progressInstructions: 'Inspect the selected contribution, revise as warranted, and update the same flight through show_flight. Do not create another board or invent work.' }), 'challenge');
 });
-$('copy-message').addEventListener('click', async () => { try { await navigator.clipboard.writeText(state.lastMessage); notify('Departure message copied. Paste it into a chat with Heart of Gold connected.'); } catch { notify('Copy is unavailable in this browser. You can select the departure message below.'); } });
+$('copy-message').addEventListener('click', async () => { try { await navigator.clipboard.writeText(state.lastMessage); notify('Short message copied. Sending the full crew context requires a connected flight deck.'); } catch { notify('Copy is unavailable in this browser. You can select the short message below.'); } });
 $('expand').addEventListener('click', async () => {
   if (!state.connected) return;
   const requested = state.hostContext.displayMode === 'fullscreen' ? 'inline' : 'fullscreen';
@@ -320,7 +465,8 @@ const media = window.matchMedia('(prefers-color-scheme: dark)');
 if (isPreview) document.documentElement.dataset.theme = media.matches ? 'dark' : 'light';
 media.addEventListener?.('change', (event) => { if (isPreview) document.documentElement.dataset.theme = event.matches ? 'dark' : 'light'; });
 let resizeFrame;
-new ResizeObserver(() => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(renderMap); }).observe($('constellation-wrap') || $('constellation').parentElement);
+const layoutObserver = new ResizeObserver(() => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(renderMap); });
+layoutObserver.observe($('constellation-wrap') || $('constellation').parentElement);
 
 if (isPreview) {
   $('preview-banner').hidden = false;
@@ -330,12 +476,18 @@ if (isPreview) {
   app.ontoolinputpartial = ({ arguments: input }) => { if (!state.snapshot && typeof input?.mission === 'string') renderMission(clip(input.mission, 6000)); };
   app.ontoolresult = (result) => {
     if (result?.isError) { notify('The host could not prepare this crew. Ask it to try again in the conversation.', 'error'); return; }
-    acceptSnapshot(result?.structuredContent);
+    try {
+      if (rememberFlight(result) === false) return;
+      state.sync = state.flight ? 'watching' : 'static';
+      if (state.flight && Date.now() >= Date.parse(state.flight.expiresAt)) { state.expired = true; state.sync = 'unavailable'; }
+      if (Array.isArray(result?.structuredContent?.members)) receiveSnapshot(result.structuredContent, false, true);
+      schedulePoll(0);
+    } catch (error) { notify(error.message, 'error'); }
   };
   app.ontoolcancelled = () => notify('The host cancelled this request. No new work has been reported.');
   app.onhostcontextchanged = applyHostContext;
-  app.onteardown = async () => { cancelAnimationFrame(resizeFrame); return {}; };
+  app.onteardown = async () => { state.tornDown = true; stopPolling(); layoutObserver.disconnect(); cancelAnimationFrame(resizeFrame); return {}; };
   const connectingNotice = setTimeout(() => { if (!state.connected) notify('Still waiting for the chat bridge. This view cannot deploy until the host connects.'); }, 8000);
-  app.onclose = () => { state.connected = false; state.canMessage = false; render(); };
-  app.connect(undefined, { timeout: 12000 }).then(() => { clearTimeout(connectingNotice); state.connected = true; state.canMessage = !!app.getHostCapabilities()?.message?.text; applyHostContext(app.getHostContext() || {}); render(); if (!state.canMessage) notify('This host does not support messages from the flight deck. You can inspect the crew and ask the host to execute it in the conversation.'); }).catch(() => { clearTimeout(connectingNotice); state.connected = false; notify('The chat bridge could not connect. Reopen Heart of Gold from the conversation.', 'error'); render(); });
+  app.onclose = () => { stopPolling(); state.connected = false; state.canMessage = false; render(); };
+  app.connect(undefined, { timeout: 12000 }).then(() => { clearTimeout(connectingNotice); state.connected = true; state.canMessage = !!app.getHostCapabilities()?.message?.text; applyHostContext(app.getHostContext() || {}); render(); schedulePoll(0); }).catch(() => { clearTimeout(connectingNotice); state.connected = false; notify('The chat bridge could not connect. Reopen Heart of Gold from the conversation.', 'error'); render(); });
 }
