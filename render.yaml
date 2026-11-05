@@ -1,0 +1,21 @@
+# Optional hosted API service; does not modify the existing ProjectForty2 edge.
+# Configure the dedicated /heartofgold/ reverse proxy separately.
+# Restart/deploy discards temporary in-memory sessions and credentials.
+services:
+  - type: web
+    name: p42-heart-of-gold
+    runtime: node
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: npm run check && npm test
+    startCommand: node hosted-server.mjs
+    healthCheckPath: /heartofgold/api/health
+    autoDeployTrigger: 'off'
+    envVars:
+      - key: NODE_VERSION
+        value: '24'
+      - key: NODE_ENV
+        value: production
+      - key: PUBLIC_ORIGIN
+        value: https://projectforty2.ai

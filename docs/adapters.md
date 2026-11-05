@@ -2,7 +2,15 @@
 
 An adapter translates an agent runtime into HEART OF GOLD's small execution contract. A connector name is not a capability guarantee. Document exactly which operations work.
 
-The current implementation is in `lib/adapters.mjs`. It exports `createAdapter(mode)`, `availability()`, `DemoAdapter`, `CodexAdapter`, and `validateResult`.
+Version 0.2 has three execution paths:
+
+| Adapter | Runs where | Capability |
+| --- | --- | --- |
+| `DemoAdapter` | Local or hosted server | Scripted demonstration; no provider calls. |
+| `CodexAdapter` | Local app only | Your installed Codex CLI with read-only agent permissions. |
+| `ProviderAdapter` | Hosted service | User-owned OpenAI, Claude, or Grok API access; structured text generation with no tools. |
+
+Local adapters are in `lib/adapters.mjs`; HTTP providers are in `lib/provider-adapter.mjs`. Both use the shared schema and validator in `lib/result-schema.mjs`.
 
 ## One call
 
@@ -18,7 +26,7 @@ An adapter implements an asynchronous `run` method accepting:
   remainingAgents,
   signal,           // AbortSignal
   onActivity,       // progress callback
-  cwd               // task working directory
+  cwd               // local task directory; undefined in hosted memory-only runs
 }
 ```
 
@@ -46,7 +54,13 @@ The adapter launches `codex exec` without a shell, sends the prompt over stdin, 
 
 Availability checks establish whether the executable is present. They do not establish authentication, rate-limit headroom, current model availability, or a successful end-to-end run.
 
-## A second adapter should prove
+## Hosted provider adapter
+
+The hosted service keeps each temporary visitor session's credentials, runs, and events separate. It supplies a user-selected provider/model to `ProviderAdapter`; the adapter calls fixed HTTPS endpoints and passes the same structured result back to the coordinator. The coordinator owns delegation. No browser, shell, file, or account tools are supplied to hosted models.
+
+OpenAI and Grok use Responses; Claude uses Messages. API access is not a universal consumer-subscription login. Model discovery is a capability candidate check, not evidence that a paid inference call succeeded. See [provider access](provider-access.md) for authentication, data flow, bounds, and testing limits.
+
+## Every new adapter should prove
 
 - A task can complete with a validated result.
 - Progress is observable without exposing hidden reasoning or secrets.
@@ -56,4 +70,4 @@ Availability checks establish whether the executable is present. They do not est
 - Declared filesystem, tool, network, and authentication behavior matches reality.
 - Tests use deterministic fixtures and need no live credentials.
 
-ACP is the next protocol candidate because its lifecycle includes setup, prompting, progress, permissions, and cancellation. ACP compatibility is a roadmap item, not a feature of this release. See [research](research.md) for primary sources.
+ACP remains a future protocol adapter for external agent runtimes. The three HTTP provider integrations do not imply ACP, MCP, A2A, or arbitrary-chat compatibility. See [research](research.md) for primary sources.

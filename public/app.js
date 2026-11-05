@@ -1,4 +1,8 @@
 const $ = (id) => document.getElementById(id);
+const API_BASE = new URL('./api/', import.meta.url);
+const endpoint = (path) => new URL(path.replace(/^\/?api\/?/, ''), API_BASE);
+const EXPECT_HOSTED = document.documentElement.dataset.runtime === 'hosted' || (['projectforty2.ai', 'www.projectforty2.ai'].includes(location.hostname) && API_BASE.pathname.startsWith('/heartofgold/'));
+const idleInspector = $('inspector').firstElementChild.cloneNode(true);
 const presets = {
   community: 'Design a welcoming first-contribution experience for an open-source agent community.',
   research: 'Explore the tradeoffs of small, bounded agent teams versus a single agent. Separate hypotheses from things we would need to test.',
@@ -17,6 +21,8 @@ let events = null;
 let launching = false;
 let initializing = true;
 let runtimeUnreachable = false;
+let connectionBusy = false;
+let expiryTimer = null;
 
 function el(tag, className, text) {
   const element = document.createElement(tag);
@@ -30,9 +36,15 @@ function textValue(value) {
 }
 function notify(message) { $('app-notice').textContent = message; }
 async function api(path, options = {}) {
-  const response = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', ...(config?.token ? { 'X-Flight-Token': config.token } : {}), ...options.headers } });
+  const response = await fetch(endpoint(path), { credentials: 'same-origin', ...options, headers: { 'Content-Type': 'application/json', ...(config?.token ? { 'X-Flight-Token': config.token } : {}), ...options.headers } });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || data.message || `Request failed (${response.status}).`);
+  if (!response.ok) {
+    if (config?.hosted && ['SESSION_EXPIRED', 'CSRF_INVALID'].includes(data.code)) {
+      runtimeUnreachable = true; events?.close(); events = null; updateControls();
+      notify('Your temporary session has changed or expired. Refresh Previous flights to reconnect. No simulator fallback was started.');
+    }
+    throw Object.assign(new Error(textValue(data.error || data.message) || `Request failed (${response.status}).`), { code: data.code });
+  }
   return data;
 }
 function persistLocal() {
@@ -43,21 +55,88 @@ function remember(run) {
   if (browserOnly) persistLocal();
 }
 function active(run = currentRun) { return run && !terminal.has(run.status); }
+function liveMode() { return config?.hosted ? 'api' : 'codex'; }
+function liveAvailable() { return !!config?.adapters?.[liveMode()]?.available; }
+function providerName(id) { return config?.providers?.find((provider) => provider.id === id)?.name || ({ openai: 'OpenAI', anthropic: 'Claude', xai: 'Grok' }[id]) || id || 'Provider'; }
+function updateProviderHelp() {
+  const provider = config?.providers?.find((item) => item.id === $('provider-select').value);
+  $('provider-detail').textContent = provider?.detail || '';
+  const link = $('provider-key-link');
+  try { const url = new URL(provider?.keyUrl); if (url.protocol !== 'https:') throw new Error(); link.href = url.href; link.hidden = false; } catch { link.removeAttribute('href'); link.hidden = true; }
+  $('workspace-field').hidden = provider?.id !== 'anthropic';
+  if (provider?.id !== 'anthropic') $('workspace-id').value = '';
+}
+function applyConfig(next) {
+  config = next;
+  const hosted = !!config.hosted;
+  const connection = config.connection;
+  $('codex-mode').value = liveMode();
+  $('live-mode-detail').textContent = hosted ? connection ? providerName(connection.provider) : 'Your API account' : 'Local Codex';
+  $('hosted-connection').hidden = !hosted;
+  $('local-connection').hidden = hosted;
+  $('power-drive').hidden = !hosted || !!connection;
+  $('connection-label').textContent = hosted ? connection ? `${providerName(connection.provider)} connected` : 'Power the drive' : config.adapters.codex?.available ? 'Codex installed' : 'Simulator connected';
+  $('connection-detail').textContent = hosted ? connection ? 'Your API account is connected for this temporary session. Choose a model on the flight deck, then set a course.' : 'Connect your own API account. Your crew uses that provider’s models, with usage billed to you.' : config.adapters.codex?.detail || 'Install Codex CLI and sign in to enable local agents. Model access is checked on launch.';
+  $('connected-summary').hidden = !connection;
+  $('connect-form').hidden = !!connection;
+  $('connected-provider').textContent = connection ? `${providerName(connection.provider)} · connected` : '';
+  const expiry = connection?.expiresAt ? new Date(connection.expiresAt) : null;
+  $('connected-expiry').textContent = expiry && !Number.isNaN(expiry.getTime()) ? `Session ends ${expiry.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Save your results.` : 'Temporary session. Save your results before disconnecting.';
+  const selectedProvider = $('provider-select').value;
+  $('provider-select').replaceChildren(...(config.providers || []).map((provider) => {
+    const option = el('option', '', provider.name); option.value = provider.id; return option;
+  }));
+  if ((config.providers || []).some((provider) => provider.id === selectedProvider)) $('provider-select').value = selectedProvider;
+  updateProviderHelp();
+  $('model-select').replaceChildren(...(connection?.models || []).map((model) => {
+    const option = el('option', '', model.label || model.id); option.value = model.id; return option;
+  }));
+  if (connection?.model) $('model-select').value = connection.model;
+  if (!liveAvailable() && $('codex-mode').checked) document.querySelector('input[name="mode"][value="demo"]').checked = true;
+  clearTimeout(expiryTimer);
+  if (expiry && !Number.isNaN(expiry.getTime())) {
+    const remaining = expiry.getTime() - Date.now();
+    expiryTimer = setTimeout(async () => {
+      try {
+        // Activity extends idle expiry; ask the server before declaring the session over.
+        const refreshed = await api('/api/config');
+        applyConfig(refreshed);
+        if (refreshed.connection) return;
+        runtimeUnreachable = true;
+        $('provider-key').value = '';
+        $('connection-label').textContent = 'Session ended';
+        notify('Your temporary connection has ended. Refresh Previous flights to reconnect. If the session expired, server history is cleared; any result still displayed here can be downloaded.');
+      } catch {
+        runtimeUnreachable = true;
+        notify('The session could not be checked. Refresh Previous flights to reconnect; no simulator fallback was started.');
+      }
+      updateControls();
+    }, Math.max(0, Math.min(remaining, 2147483647)));
+  }
+  updateMode(); updateControls();
+}
 function updateMode() {
-  const live = document.querySelector('input[name="mode"]:checked')?.value === 'codex';
-  $('mode-note').textContent = live ? 'Real Codex sessions. Your account usage applies. Read-only text work.' : browserOnly ? 'Browser-only simulation. Scripted crew, no AI calls, no charges.' : 'A scripted demo of delegation. No AI calls, no charges.';
-  $('launch-note').textContent = live ? 'Local agents. Bounded crew. Real model usage.' : 'A small step for your to-do list.';
+  const live = document.querySelector('input[name="mode"]:checked')?.value !== 'demo';
+  $('mode-note').textContent = live ? config?.hosted ? 'Real API calls, billed by your provider. Text work; no browsing or file tools.' : 'Real Codex sessions. Your account usage applies. Read-only text work.' : browserOnly ? 'Browser-only simulation. Scripted crew, no AI calls, no charges.' : 'A scripted demo of delegation. No AI calls, no charges.';
+  $('launch-note').textContent = live ? config?.hosted ? 'Your API account. Bounded crew. Real model usage.' : 'Local agents. Bounded crew. Real model usage.' : 'A small step for your to-do list.';
+  $('model-control').hidden = !config?.hosted || !config.connection || !live;
 }
 function updateControls() {
-  const busy = active() || launching || initializing || runtimeUnreachable;
+  const busy = active() || launching || initializing || runtimeUnreachable || connectionBusy;
   $('launch-button').disabled = !!busy;
   $('cancel-button').hidden = !active();
   $('cancel-button').disabled = false;
-  $('launch-button').firstElementChild.textContent = initializing ? 'Checking the flight deck…' : runtimeUnreachable ? 'Local connection interrupted' : launching ? 'Preparing the ship…' : active() ? 'Crew out exploring…' : 'Engage improbability drive';
+  $('launch-button').firstElementChild.textContent = initializing ? 'Checking the flight deck…' : runtimeUnreachable ? 'Connection interrupted' : launching ? 'Preparing the ship…' : active() ? 'Crew out exploring…' : 'Engage improbability drive';
   $('task').disabled = !!busy;
   document.querySelectorAll('[data-preset], #max-agents, #max-depth, input[name="mode"]').forEach((input) => {
-    input.disabled = !!busy || (input.id === 'codex-mode' && !config?.adapters?.codex?.available);
+    input.disabled = !!busy || (input.id === 'codex-mode' && !liveAvailable());
   });
+  $('model-select').disabled = !!busy;
+  $('power-drive').disabled = initializing || runtimeUnreachable || connectionBusy;
+  ['provider-select', 'provider-key', 'workspace-id', 'connect-submit'].forEach((id) => { $(id).disabled = connectionBusy || initializing || runtimeUnreachable || active(); });
+  $('disconnect-button').disabled = connectionBusy || initializing || runtimeUnreachable;
+  $('disconnect-button').textContent = active() ? 'Disconnect & stop crew' : 'Disconnect';
+  $('connect-submit').firstElementChild.textContent = connectionBusy ? 'Checking your drive…' : 'Connect the drive';
 }
 function layoutNodes(nodes) {
   const positions = new Map();
@@ -127,12 +206,12 @@ function renderMap() {
   $('crew-count').textContent = `${nodes.length} crew aboard`;
   $('run-state').textContent = (currentRun?.status || 'standby').toUpperCase();
   $('run-state').dataset.state = currentRun?.status || 'standby';
-  $('map-mode').textContent = currentRun ? currentRun.mode === 'codex' ? 'LIVE CODEX / REAL SESSIONS' : browserOnly ? 'BROWSER-ONLY / SCRIPTED DEMO' : 'FLIGHT SIMULATOR / SCRIPTED DEMO' : browserOnly ? 'BROWSER-ONLY SIMULATOR' : 'SIMULATOR READY';
+  $('map-mode').textContent = currentRun ? currentRun.mode === 'api' ? `LIVE ${providerName(currentRun.provider).toUpperCase()} / REAL API CALLS` : currentRun.mode === 'codex' ? 'LIVE CODEX / REAL SESSIONS' : browserOnly ? 'BROWSER-ONLY / SCRIPTED DEMO' : 'FLIGHT SIMULATOR / SCRIPTED DEMO' : browserOnly ? 'BROWSER-ONLY SIMULATOR' : config?.hosted ? 'HOSTED FLIGHT DECK / READY' : 'SIMULATOR READY';
   $('map-title').textContent = !currentRun ? 'A little space to think.' : currentRun.status === 'completed' ? 'The crew is home.' : currentRun.status === 'cancelled' ? 'Safely out of hyperspace.' : currentRun.status === 'failed' ? 'A disturbance in the field.' : currentRun.status === 'interrupted' ? 'Flight interrupted.' : 'Good ideas travel together.';
 }
 function renderInspector() {
   const node = currentRun?.nodes.find((item) => item.id === selectedNode);
-  if (!node) return;
+  if (!node) { $('inspector').replaceChildren(idleInspector.cloneNode(true)); return; }
   const wrap = el('div', 'agent-detail');
   const avatar = el('div', 'inspector-avatar');
   avatar.append(el('span', 'cursor-shape'));
@@ -172,7 +251,7 @@ function eventDescription(event) {
 function renderLog() {
   const log = currentRun?.events || [];
   $('log-count').textContent = `${String(log.length).padStart(2, '0')} EVENTS`;
-  if (!log.length) return;
+  if (!log.length) { const row = el('li', 'empty-log'); row.append(el('time', '', '—'), el('span', '', 'All systems pleasantly uneventful. Awaiting a mission.')); $('ship-log').replaceChildren(row); return; }
   const items = log.slice(-40).reverse().map((event) => {
     const row = el('li');
     const date = new Date(event.at || event.timestamp || currentRun.createdAt);
@@ -184,7 +263,7 @@ function renderLog() {
 function renderHistory() {
   const list = runs.slice(0, 8).map((run) => {
     const button = el('button', `history-item${run.id === currentRun?.id ? ' active' : ''}`);
-    button.append(el('strong', '', run.task), el('small', '', `${run.mode === 'codex' ? 'Live' : 'Demo'} · ${run.status}`));
+    button.append(el('strong', '', run.task), el('small', '', `${run.mode !== 'demo' ? 'Live' : 'Demo'} · ${run.status}`));
     button.addEventListener('click', async () => {
       if (active() && currentRun.id !== run.id) { notify('Let the current crew return, or stop the run, before opening another flight.'); return; }
       try {
@@ -196,7 +275,7 @@ function renderHistory() {
     });
     return button;
   });
-  if (list.length) $('history-list').replaceChildren(...list);
+  $('history-list').replaceChildren(...(list.length ? list : [el('p', 'muted', 'Your first departure awaits.')]));
 }
 function renderResult() {
   const done = currentRun && terminal.has(currentRun.status);
@@ -204,7 +283,7 @@ function renderResult() {
   if (!done) return;
   const result = textValue(currentRun.result);
   $('result-title').textContent = currentRun.status === 'completed' ? 'The crew brought something back.' : currentRun.status === 'cancelled' ? 'This flight was stopped.' : currentRun.status === 'interrupted' ? 'This flight was interrupted.' : 'This flight needs attention.';
-  $('result-provenance').textContent = currentRun.mode === 'codex' ? 'LIVE CODEX · Agent-generated output. Review claims before using them.' : 'SCRIPTED SIMULATION · Illustrative output. No model performed this mission.';
+  $('result-provenance').textContent = currentRun.mode === 'api' ? `LIVE ${providerName(currentRun.provider).toUpperCase()} · ${currentRun.model || 'API model'} · Agent-generated text; claims are not web-verified.` : currentRun.mode === 'codex' ? 'LIVE CODEX · Agent-generated output. Review claims before using them.' : 'SCRIPTED SIMULATION · Illustrative output. No model performed this mission.';
   $('result-content').textContent = result || textValue(currentRun.error) || 'No final result was produced. Individual crew outputs and events are available in the flight receipt.';
   $('download-result').disabled = !result;
 }
@@ -219,13 +298,22 @@ async function refreshRun() {
     remember(updated);
     if (!selectedNode) selectedNode = updated.nodes?.[0]?.id;
     render();
-  } catch (error) { notify(`The ship’s radio is quiet: ${error.message} The display may be stale; this does not stop the agents.`); }
+  } catch (error) { if (!['SESSION_EXPIRED', 'CSRF_INVALID'].includes(error.code)) notify(`The ship’s radio is quiet: ${error.message} The display may be stale; this does not stop the agents.`); }
 }
 function listen() {
-  events = new EventSource('/api/events');
+  events?.close();
+  events = new EventSource(endpoint('/api/events'));
   events.onmessage = (message) => {
     try {
       const event = JSON.parse(message.data);
+      if (event.type === 'connection.changed') {
+        api('/api/config').then((next) => {
+          applyConfig(next);
+          if (!next.connection) notify('Your provider connection is no longer available. Open Power the drive to reconnect. The current mission may have failed; check its result.');
+          refreshRun();
+        }).catch((error) => { runtimeUnreachable = true; updateControls(); notify(`Could not refresh your provider connection: ${error.message}`); });
+        return;
+      }
       if (event.runId === currentRun?.id) {
         clearTimeout(refreshTimer);
         refreshTimer = setTimeout(refreshRun, 80);
@@ -295,24 +383,26 @@ function launchSimulation(task, limits) {
 async function initialize() {
   let bridgeSeen = false;
   try {
-    const response = await fetch('/api/config', { signal: AbortSignal.timeout(4000) });
-    if (!response.ok) throw new Error('No local runtime');
+    const response = await fetch(endpoint('/api/config'), { signal: AbortSignal.timeout(6000), credentials: 'same-origin' });
+    if (!response.ok) throw new Error(`Flight deck unavailable (${response.status}).`);
     config = await response.json();
     if (!config.adapters) throw new Error('No runtime protocol');
     bridgeSeen = true;
-    $('connection-label').textContent = config.adapters.codex?.available ? 'Local Codex detected' : 'Simulator connected';
-    $('connection-detail').textContent = config.adapters.codex?.detail || 'Install Codex locally and sign in to enable live agents.';
-    $('codex-mode').disabled = !config.adapters.codex?.available;
+    if (EXPECT_HOSTED && !config.hosted) throw new Error('The hosted flight deck returned an unexpected configuration.');
+    applyConfig(config);
     const history = await api('/api/runs');
     runs = Array.isArray(history) ? history : history.runs || [];
     currentRun = runs.find((run) => !terminal.has(run.status)) || null;
     if (currentRun) selectedNode = currentRun.nodes?.[0]?.id;
     listen();
   } catch (error) {
-    if (bridgeSeen) {
+    if (bridgeSeen || EXPECT_HOSTED) {
       runtimeUnreachable = true;
       $('connection-label').textContent = 'Connection interrupted';
-      notify(`The local bridge answered, but flight history could not be loaded: ${error.message} Use the refresh button beside Previous flights to reconnect. No simulator fallback was started.`);
+      $('connection-detail').textContent = 'The hosted flight deck could not be reached. Close this panel and use the refresh button beside Previous flights to retry. No API key can be entered until a session is established.';
+      if (EXPECT_HOSTED && !config) config = { hosted: true, adapters: { api: { available: false }, demo: { available: true } }, providers: [], connection: null };
+      $('hosted-connection').hidden = true; $('local-connection').hidden = true;
+      notify(`The flight deck is unavailable: ${error.message} Use the refresh button beside Previous flights to reconnect. No simulator fallback was started.`);
       initializing = false;
       updateMode(); render();
       return;
@@ -320,7 +410,7 @@ async function initialize() {
     browserOnly = true;
     config = { adapters: { codex: { available: false }, demo: { available: true } } };
     $('connection-label').textContent = 'Browser-only simulator';
-    $('connection-detail').textContent = 'You’re aboard the public flight simulator. Download the open-source app and run it locally to connect Codex. This preview makes no model calls.';
+    $('connection-detail').textContent = 'You’re aboard the public flight simulator. Visit the hosted flight deck to connect your API account, or run the open-source app locally with Codex. This preview makes no model calls.';
     try {
       const stored = JSON.parse(localStorage.getItem('heart-of-gold-flights-v1') || '[]');
       runs = Array.isArray(stored) ? stored.filter((run) => run && run.mode === 'demo' && Array.isArray(run.nodes) && Array.isArray(run.events)).slice(0, 12) : [];
@@ -370,6 +460,54 @@ document.querySelectorAll('[data-preset]').forEach((button) => button.addEventLi
 document.querySelectorAll('input[name="mode"]').forEach((input) => input.addEventListener('change', updateMode));
 ['guide-open', 'about-open', 'footer-guide'].forEach((id) => $(id).addEventListener('click', () => $('guide-dialog').showModal()));
 $('connect-open').addEventListener('click', () => $('connect-dialog').showModal());
+$('power-drive').addEventListener('click', () => $('connect-dialog').showModal());
+$('provider-select').addEventListener('change', () => { $('provider-key').value = ''; $('connect-error').textContent = ''; updateProviderHelp(); });
+$('connect-dialog').addEventListener('close', () => { $('provider-key').value = ''; $('workspace-id').value = ''; });
+$('connect-dialog').addEventListener('cancel', () => { $('provider-key').value = ''; $('workspace-id').value = ''; });
+$('connect-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!config?.hosted || connectionBusy || initializing || runtimeUnreachable || active()) return;
+  const provider = $('provider-select').value;
+  const key = $('provider-key').value.trim();
+  if (!key || !provider) return;
+  const payload = { provider, key };
+  if (provider === 'anthropic' && $('workspace-id').value.trim()) payload.workspaceId = $('workspace-id').value.trim();
+  $('provider-key').value = '';
+  $('workspace-id').value = '';
+  connectionBusy = true; $('connect-error').textContent = 'Checking your API account and available models…'; updateControls();
+  try {
+    const next = await api('/api/connect', { method: 'POST', body: JSON.stringify(payload) });
+    applyConfig(next);
+    if (liveAvailable()) $('codex-mode').checked = true;
+    $('connect-error').textContent = '';
+    $('connect-dialog').close();
+    notify('Your drive is connected. Choose a model and give the crew a mission. API usage is billed to your provider account.');
+    updateMode(); render();
+  } catch (error) { $('connect-error').textContent = `Could not connect: ${error.message} Your key field has been cleared.`; }
+  finally { payload.key = ''; connectionBusy = false; updateControls(); }
+});
+$('disconnect-button').addEventListener('click', async () => {
+  if (!config?.hosted || connectionBusy || runtimeUnreachable) return;
+  connectionBusy = true; $('connect-error').textContent = 'Disconnecting the drive and stopping active work…'; updateControls();
+  try {
+    applyConfig(await api('/api/disconnect', { method: 'POST', body: '{}' }));
+    document.querySelector('input[name="mode"][value="demo"]').checked = true;
+    $('connect-error').textContent = '';
+    $('provider-key').value = '';
+    notify('Drive disconnected. The API key has been removed and active work stopped. Session history remains until expiry or server restart.');
+    await refreshRun(); updateMode(); render();
+  } catch (error) { $('connect-error').textContent = `Disconnect failed: ${error.message} The connection may still be active.`; }
+  finally { connectionBusy = false; updateControls(); }
+});
+$('model-select').addEventListener('change', async () => {
+  if (!config?.hosted || connectionBusy || active() || runtimeUnreachable) return;
+  const model = $('model-select').value;
+  const previousModel = config.connection?.model;
+  connectionBusy = true; updateControls();
+  try { applyConfig(await api('/api/model', { method: 'POST', body: JSON.stringify({ model }) })); notify('Engine selected. The next mission will use this model.'); }
+  catch (error) { $('model-select').value = previousModel || ''; notify(`Could not change model: ${error.message}`); }
+  finally { connectionBusy = false; updateControls(); }
+});
 document.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => button.closest('dialog').close()));
 document.querySelectorAll('dialog').forEach((dialog) => dialog.addEventListener('click', (event) => { if (event.target === dialog) { const rect = dialog.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close(); } }));
 $('download-result').addEventListener('click', () => { if (currentRun?.result) download(`heart-of-gold-${currentRun.id}.txt`, textValue(currentRun.result), 'text/plain'); });
@@ -377,15 +515,16 @@ $('download-receipt').addEventListener('click', () => { if (currentRun) download
 $('refresh-history').addEventListener('click', async () => {
   if (browserOnly) { renderHistory(); notify('Browser simulator flights are saved only in this browser.'); return; }
   try {
+    applyConfig(await api('/api/config'));
     const history = await api('/api/runs');
     runs = Array.isArray(history) ? history : history.runs || [];
     runtimeUnreachable = false;
+    if (currentRun && !runs.some((run) => run.id === currentRun.id)) { currentRun = null; selectedNode = null; }
     if (!currentRun) { currentRun = runs.find((run) => !terminal.has(run.status)) || null; selectedNode = currentRun?.nodes?.[0]?.id; }
     if (!events) listen();
-    $('connection-label').textContent = config.adapters.codex?.available ? 'Local Codex detected' : 'Simulator connected';
     notify(''); render(); await refreshRun();
   } catch (error) { notify(error.message); }
 });
-window.addEventListener('beforeunload', () => { if (browserOnly) persistLocal(); events?.close(); });
+window.addEventListener('beforeunload', () => { $('provider-key').value = ''; if (browserOnly) persistLocal(); events?.close(); });
 updateControls();
 initialize();

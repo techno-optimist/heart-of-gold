@@ -6,21 +6,36 @@ A [ProjectForty2.ai](https://projectforty2.ai/) open-source experiment in visibl
 
 Don't Panic. Bring a towel. Check the work.
 
-## What is actually here?
+## Choose your drive
 
 | Flight mode | What happens |
 | --- | --- |
-| **Flight simulator** | A deterministic demonstration exercises the task tree and interface. No model calls. Its output is demonstration content. |
-| **Live Codex** | Your locally installed Codex CLI runs real, bounded tasks. Agents can request child tasks; the coordinator runs those tasks and passes their results back for synthesis. |
-| **Static showcase** | When no local server is available, the browser offers an explicitly labelled simulation. Live execution is unavailable. |
+| **Hosted API crew — v0.2** | Connect your own OpenAI, Anthropic, or xAI API key, choose an account-listed model, and run a bounded text mission. The server coordinates real provider calls. |
+| **Local Codex** | Your installed Codex CLI runs bounded tasks in read-only sessions. The CLI manages its authentication. |
+| **Flight simulator** | A scripted demonstration exercises delegation and the interface. No model calls; output is demonstration content. |
+| **GitHub Pages showcase** | A browser-only simulator. It has no execution backend and cannot access your local Codex. |
 
-The first version produces text results and a persistent run record. It does **not** edit your repositories, merge branches, drive arbitrary browser tabs, or attach to an already-running chat. The animated map represents task activity; it is not a screen recording of agent mouse movements. A completed run means execution completed, not that its conclusions have been independently verified.
+The v0.2 hosted destination is [projectforty2.ai/heartofgold/](https://projectforty2.ai/heartofgold/). See the dated [flight check](docs/verification.md) for deployment and verification status. Hosted paid inference has **not** been tested with real provider credentials.
 
-## Board the ship
+[Source and contributions](https://github.com/techno-optimist/heart-of-gold) · [Browser simulator](https://techno-optimist.github.io/heart-of-gold/) · [Provider access guide](docs/provider-access.md)
 
-Requirements: Node.js 22 or newer. The app has no npm runtime dependencies.
+This alpha produces text deliverables. It does **not** edit repositories, merge branches, drive browser tabs, or attach to an existing chat. The map represents task activity, not a recording of agent mouse movements. A completed flight means execution completed; its conclusions still need review.
 
-Clone the source, then start the local flight deck:
+## Hosted flight deck
+
+Choose **Power the drive**, select OpenAI, Claude, or Grok, and supply your own API key. The backend checks the provider's model listing and returns candidate text models. Choose a model, select **Live agents**, and launch a small mission. Model-list access is not proof that every returned model will complete a mission: permissions, request compatibility, quota, and billing are checked during actual requests.
+
+API access is separate from consumer chat access. A ChatGPT, Claude, or Grok subscription does not automatically supply an API key or API credit; eligible credit offers still need provider API setup. This version implements API-key access, **not** consumer-account OAuth or imported chat cookies. See [provider access](docs/provider-access.md) for official account links and current distinctions.
+
+Your key travels over HTTPS to ProjectForty2 and stays in server memory for your temporary session. It is not written to browser storage, receipts, application logs, or the application's filesystem. A hosting operator can potentially access process memory; this is not an end-to-end secret vault. Prompts and results go to the chosen provider. Read [SECURITY.md](SECURITY.md) before entering sensitive material.
+
+Sessions expire after **20 minutes without API activity**, or **one hour total**, whichever comes first. The latest five flights remain in that session. Expiry, restart, or a free-host shutdown loses the session, its key, and its history. **Disconnect** removes the key and cancels active work; history lasts until session expiry. Download results and receipts you want to keep.
+
+Free hosting can sleep and take time to wake. An unavailable hosted backend is shown as a connection failure; it never silently becomes a simulated success. This is a small community alpha with capacity limits, not an always-on production service.
+
+## Run locally
+
+Requirements: Node.js 22 or newer. There are no npm runtime dependencies.
 
 ```sh
 git clone https://github.com/techno-optimist/heart-of-gold.git
@@ -28,21 +43,19 @@ cd heart-of-gold
 npm start
 ```
 
-Open [http://127.0.0.1:4242](http://127.0.0.1:4242). Try the flight simulator first. Click a crew member to inspect its task and output; open the ship's log to follow events. Download the receipt before sharing a result.
+Open [http://127.0.0.1:4242](http://127.0.0.1:4242). Try the simulator first. Click a crew member to inspect its task and full contribution, follow the ship's log, and save a receipt.
 
-The browser showcase runs a simulator only. Run this source package locally to connect Codex. A static website does not receive your local CLI credentials or run agents on your machine.
+To use local agents, install the [Codex CLI](https://learn.chatgpt.com/docs/cli) and run `codex login` in your terminal. Restart after installing Codex, select **Live agents**, and launch. “Codex installed” does not establish authentication, model access, or quota. Your CLI login stays with Codex; the local interface does not collect API keys.
 
-[Source and contributions](https://github.com/techno-optimist/heart-of-gold) · [Try the browser simulator](https://techno-optimist.github.io/heart-of-gold/) · [Verification receipt](docs/verification.md). The existing ProjectForty2.ai website is unchanged.
-
-To use a real crew, install the [Codex CLI](https://learn.chatgpt.com/docs/cli) separately and authenticate with `codex login` in your terminal. Restart the app if you installed the CLI after starting it, select **Live Codex**, and launch a mission. CLI availability is not proof that authentication, provider access, or quota will succeed. Live errors remain visible; they never silently turn into a simulated success.
-
-No API keys go into this web interface. Your CLI manages its authentication. Live runs use your provider access and can incur usage charges or consume plan allowances. The crew limits are execution limits, not a dollar-spend guarantee.
+The local server is for loopback use by one person. Do not expose `server.mjs` through a public tunnel. It persists records under `.flight-data/`; unlike hosted sessions, local history survives restarts. Interrupted work is marked interrupted and never automatically resumed.
 
 ## A useful first mission
 
 > Draft a practical contributor onboarding guide for a small open-source project. Delegate an accessibility review and a skeptical review of the instructions, then combine their findings. Clearly identify assumptions and checks still needed.
 
-Use public or synthetic material while exploring. A good experiment compares the crew's result with a single agent's result on the same task, including time, usage where available, and human review. More cursors are not automatically better work.
+Use public or synthetic material while exploring. Hosted agents have **no tools**: they cannot browse, execute commands, inspect files, or perform account actions. Frame research tasks as analysis and proposed checks, not verified internet research.
+
+Compare the crew with one agent on the same task: result quality, time, usage where available, and human review. More cursors are not automatically better work.
 
 ## How the improbability drive works
 
@@ -52,22 +65,33 @@ Mission → lead agent → bounded child tasks → child results
                  parent synthesis → final result + receipt
 ```
 
-The coordinator owns scheduling, task identity, depth and crew limits, cancellation, and persistence. An adapter performs each agent call. The UI reads the resulting state and events. Demo and live modes use the same runtime contract, but remain visibly distinct.
+The coordinator owns scheduling, task identity, delegation, cancellation, and history. An adapter performs each call. Demo and live modes share the runtime contract and remain visibly distinct.
 
-The local Codex adapter uses structured output and JSONL events from `codex exec`. Workers start in separate task directories with a read-only agent sandbox. The host coordinator writes run records. Read-only is **not** a confidentiality boundary: it does not establish that the process cannot read other files accessible to your account. See [security and privacy](SECURITY.md) before using sensitive inputs.
+Per-flight ceilings: **7 agents, depth 2, 3 concurrent calls, 10 minutes**. Waiting parents release their execution slot before children run. Hosted provider calls have a 90-second deadline, bounded responses, and a 4,096-token maximum output budget per call. These are execution limits, **not a dollar-spend cap**. Cancellation cannot retract work already processed by a provider.
 
-Run data stays in `.flight-data/` on your machine. This application adds no analytics or default telemetry. In live mode, prompts and supplied context are sent through your configured Codex access; provider behavior and retention are governed by that service. Do not publish run records without reviewing them for private content.
+The local Codex adapter uses `codex exec` structured output and JSONL events. Workers start in separate directories with a read-only sandbox and without the user's Codex configuration. This controls writes; it is not a confidentiality boundary against reading files accessible to your account.
+
+This application adds no analytics. Hosted mode uses an essential HttpOnly session cookie. Providers, Codex, browsers, and hosting infrastructure have their own behavior and retention policies. Review receipts before sharing.
+
+## Host your own experiment
+
+`hosted-server.mjs` is the hosted entry point, separate from the local CLI executor. It serves `/heartofgold/`, isolates browser sessions, and supports BYO API keys. Set `PUBLIC_ORIGIN` to the exact HTTPS origin visitors use. The [Render Blueprint](render.yaml) describes one free Node service; it does not configure a custom domain or alter the existing ProjectForty2 edge.
+
+Preserve the `/heartofgold/` prefix, cookies, origin, flight-token header, and streaming responses behind a proxy. Optional ingress authentication uses a private `HOG_INGRESS_TOKEN` on the Node service and a matching `X-Hog-Ingress` header injected by the trusted edge. Configure both ends together; never publish the token. The initial ProjectForty2 deployment uses session/origin/token protection without this optional ingress secret. It ignores forwarded client-IP claims, so visitors behind the proxy share the socket-IP rate limit. `/heartofgold/api/health` is public for health checks.
+
+The Blueprint disables automatic deploys. A restart clears all in-memory sessions. Keep `HOSTED_DEV` unset in production; development HTTP is limited to localhost.
 
 ## Help build the next improbable thing
 
-- **Babel fish:** implement a second adapter with cancellation and lifecycle tests.
-- **Marvin's objections:** contribute tasks where a swarm performs worse than a single agent.
-- **Towel checks:** improve keyboard access, screen-reader descriptions, and reduced-motion behavior.
-- **Ship's log:** improve receipt export, provenance, and failure explanations.
+- **Babel fish:** improve provider compatibility and model discovery with receipts.
+- **Marvin's objections:** contribute tasks where a crew performs worse than one agent.
+- **Towel checks:** improve accessibility, session isolation, and cancellation.
+- **Ship's log:** improve exports, provenance, and honest failure explanations.
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md), the [architecture decision](docs/architecture.md), and the [roadmap](docs/roadmap.md). Run the checks with:
+Start with [CONTRIBUTING.md](CONTRIBUTING.md), [provider access](docs/provider-access.md), and the [roadmap](docs/roadmap.md). Run the checks:
 
 ```sh
+npm run check
 npm test
 ```
 
@@ -75,6 +99,6 @@ npm test
 
 The spark came from [Dhvanil Patel's swarm-cursors](https://github.com/DhvanilPatel/swarm-cursors), which credits [Joel Califa's Swarm](https://califa.github.io/swarm-site/) and its [source](https://github.com/califa/swarm-site). Their visual experiments made the question irresistible: what if the little cursors had real work to do?
 
-This project is an original implementation. No code or assets from those projects are included. We did not find a license grant in the upstream root listings we inspected; public source visibility is not treated as a reuse license.
+This is an original implementation. No code or assets from those projects are included. We did not find a license grant in the upstream root listings inspected; public visibility is not treated as a reuse license.
 
-Our original code is [MIT licensed](LICENSE). This is an unofficial, Hitchhiker-inspired experiment, not an authorized adaptation or an affiliation with Douglas Adams's estate, publishers, or other rights holders. The software license does not grant rights in third-party names, characters, branding, or works. ProjectForty2 is a personal experimental lab; this is a community invitation, not a claim of established project governance or a production service.
+Our original code is [MIT licensed](LICENSE). This is an unofficial, Hitchhiker-inspired experiment, not an authorized adaptation or affiliation with Douglas Adams's estate, publishers, or other rights holders. The software license grants no rights in third-party names, characters, branding, or works. ProjectForty2 is a personal experimental lab; this is a community invitation, not a claim of established governance or production readiness.
