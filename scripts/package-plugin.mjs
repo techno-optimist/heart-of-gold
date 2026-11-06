@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto';
 const repository = fileURLToPath(new URL('../', import.meta.url));
 const plugin = resolve(repository, 'plugins/heart-of-gold');
 const allowedRoots = new Set(['plugin.json', 'mcp.json', 'skills', 'assets', 'ui']);
-const textExtensions = new Set(['.json', '.md', '.yaml', '.yml', '.svg']);
+const textExtensions = new Set(['.json', '.md', '.yaml', '.yml', '.svg', '.mjs']);
 const assetExtensions = new Set(['.svg', '.png', '.jpg', '.jpeg', '.webp']);
 const maxBytes = 10 * 1024 * 1024;
 
@@ -66,6 +66,10 @@ async function collect() {
   await add(resolve(repository, 'LICENSE'), 'LICENSE');
   await walk(resolve(plugin, 'skills'), 'skills');
   await walk(resolve(plugin, 'assets'), 'assets');
+  // Two reviewed dependency-free bridge files only; never archive arbitrary
+  // repository scripts, node_modules, source workspaces, or run credentials.
+  await add(resolve(repository, 'scripts/watch-project.mjs'), 'skills/deploy-drive/scripts/watch-project.mjs');
+  await add(resolve(repository, 'lib/project-watcher.mjs'), 'skills/deploy-drive/lib/project-watcher.mjs');
 
   const manifest = JSON.parse(entries.get('plugin.json').toString('utf8'));
   const mcp = JSON.parse(entries.get('mcp.json').toString('utf8'));

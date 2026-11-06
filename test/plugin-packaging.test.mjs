@@ -32,6 +32,8 @@ with zipfile.ZipFile(sys.argv[1]) as z:
     assert p['version'] == '0.3.0' and p['extensions']['com.openai']['apps'] == './.app.json'
     assert 'review' not in p['extensions']['com.openai']
     assert 'skills/deploy-drive/SKILL.md' in z.namelist() and 'LICENSE' in z.namelist()
+    assert 'skills/deploy-drive/scripts/watch-project.mjs' in z.namelist()
+    assert 'skills/deploy-drive/lib/project-watcher.mjs' in z.namelist()
 `, first], { encoding: 'utf8' });
   assert.equal(inspected.status, 0, inspected.stderr);
 });

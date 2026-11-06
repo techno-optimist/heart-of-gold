@@ -443,3 +443,6 @@ input,select,.role-form textarea,.mission-settings textarea{display:block;max-wi
 .crew-list-name{grid-area:name;font:500 13px/1.4 var(--sans);color:var(--ivory);overflow-wrap:anywhere}
 .crew-list-role{grid-area:role;font:11px/1.45 var(--sans);color:var(--muted);overflow-wrap:anywhere}
 .crew-list-status{grid-area:status;font:8px/1.4 var(--mono);color:var(--gold);white-space:nowrap;text-align:right}
+
+/* Worker annotations never intercept the authored app; Crew owns inspection. */
+.component-overlay .component-cursor,.component-overlay .component-cursor *{pointer-events:none!important}

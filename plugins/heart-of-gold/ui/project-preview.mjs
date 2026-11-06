@@ -1,5 +1,6 @@
 /** Project files are host-supplied artifacts, never synthesized by the UI. */
 import { COMPONENT_ID, installComponentProbe, createComponentCanvas, componentEventsSince, projectRenderKey, sanitizedComponentGeometry } from './component-canvas.mjs';
+import { normalizeComponentRuntime, componentShellKey, componentPatches, installComponentRuntime } from './component-runtime.mjs';
 export const PREVIEW_URL = 'https://projectforty2.ai/heartofgold/project-preview.html';
 const MAX_FILE_BYTES = 65536;
 const MAX_PROJECT_BYTES = 262144;
@@ -25,9 +26,11 @@ export function normalizeProject(input) {
   });
   const changes = (Array.isArray(input.changes) ? input.changes : []).slice(0, 48).map(change => ({ path: clip(change.path, 240), operation: ['added', 'modified', 'deleted'].includes(change.operation) ? change.operation : 'modified', memberId: clip(change.memberId, 80), summary: clip(change.summary, 500) }));
   const checks = (Array.isArray(input.checks) ? input.checks : []).slice(0, 24).map(check => ({ name: clip(check.name, 160), status: ['passed', 'failed', 'not_run'].includes(check.status) ? check.status : 'not_run', details: clip(check.details, 2000), memberId: clip(check.memberId, 80), command: clip(check.command, 500), sourceDigest: clip(check.sourceDigest, 64), projectRevision: check.projectRevision }));
-  const components = (Array.isArray(input.components) ? input.components : []).slice(0, 12).filter(component => COMPONENT_ID.test(component.id)).map(component => ({ id: component.id, label: clip(component.label, 120), memberId: clip(component.memberId, 80), workerId: clip(component.workerId, 160), filePaths: (Array.isArray(component.filePaths) ? component.filePaths : []).slice(0, 24).map(path => clip(path, 240)), sourceDigest: clip(component.sourceDigest, 64) }));
-  const events = (Array.isArray(input.events) ? input.events : []).slice(-64).filter(event => event.kind === 'component.updated' && Number.isInteger(event.seq) && event.seq > 0 && COMPONENT_ID.test(event.componentId)).map(event => ({ id: clip(event.id, 160), seq: event.seq, kind: 'component.updated', projectRevision: event.projectRevision, flightRevision: event.flightRevision, at: clip(event.at, 80), componentId: event.componentId, memberId: clip(event.memberId, 80), workerId: clip(event.workerId, 160), changedPaths: (Array.isArray(event.changedPaths) ? event.changedPaths : []).slice(0, 24).map(path => clip(path, 240)), sourceDigest: clip(event.sourceDigest, 64) }));
-  return { schemaVersion: 1, title: clip(input.title, 160) || 'The project', entrypoint: clip(input.entrypoint, 240), revision: input.revision, basedOnFlightRevision: input.basedOnFlightRevision, updatedAt: clip(input.updatedAt, 80), sourceRevision: clip(input.sourceRevision, 160), sourceDigest: clip(input.sourceDigest, 64), links: { repository: safeProjectLink(input.links?.repository), preview: safeProjectLink(input.links?.preview) }, files, changes, checks, components, events };
+  const components = (Array.isArray(input.components) ? input.components : []).slice(0, 12).filter(component => component && COMPONENT_ID.test(component.id)).map(component => ({ id: component.id, label: clip(component.label, 120), memberId: clip(component.memberId, 80), workerId: clip(component.workerId, 160), filePaths: (Array.isArray(component.filePaths) ? component.filePaths : []).slice(0, 24).map(path => clip(path, 240)), sourceDigest: clip(component.sourceDigest, 64) }));
+  const events = (Array.isArray(input.events) ? input.events : []).slice(-64).filter(event => event && event.kind === 'component.updated' && Number.isInteger(event.seq) && event.seq > 0 && COMPONENT_ID.test(event.componentId)).map(event => ({ id: clip(event.id, 160), seq: event.seq, kind: 'component.updated', projectRevision: event.projectRevision, flightRevision: event.flightRevision, at: clip(event.at, 80), componentId: event.componentId, memberId: clip(event.memberId, 80), workerId: clip(event.workerId, 160), changedPaths: (Array.isArray(event.changedPaths) ? event.changedPaths : []).slice(0, 24).map(path => clip(path, 240)), sourceDigest: clip(event.sourceDigest, 64) }));
+  const entrypoint = clip(input.entrypoint, 240);
+  const runtime = normalizeComponentRuntime(input.runtime, files, components, entrypoint || (seen.has('index.html') ? 'index.html' : files.find(file => /\.html?$/i.test(file.path))?.path));
+  return { runtime, schemaVersion: 1, title: clip(input.title, 160) || 'The project', entrypoint: clip(input.entrypoint, 240), revision: input.revision, basedOnFlightRevision: input.basedOnFlightRevision, updatedAt: clip(input.updatedAt, 80), sourceRevision: clip(input.sourceRevision, 160), sourceDigest: clip(input.sourceDigest, 64), links: { repository: safeProjectLink(input.links?.repository), preview: safeProjectLink(input.links?.preview) }, files, changes, checks, components, events };
 }
 export function resolveProjectPath(reference, fromPath) {
   if (typeof reference !== 'string' || /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(reference)) return null;
@@ -86,12 +89,17 @@ export function buildPreviewDocument(project, nonce, drafts = new Map(), options
     html = /<\/body\s*>/i.test(html) ? html.replace(/<\/body\s*>/i, match => `${deferred}${match}`) : `${html}\n${deferred}`;
   }
   const policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
-  const probeConfig = { nonce, ids: (project.components || []).map(component => component.id), arrivalIds: options.arrivalIds || [], motionAllowed: options.motionAllowed !== false };
-  const instrumentation = `<script>(${installComponentProbe.toString()})(${JSON.stringify(probeConfig).replace(/</g, '\\u003c')});<\/script>`;
+  const probeConfig = { nonce, ids: (project.components || []).map(component => component.id), arrivalIds: project.runtime ? [] : options.arrivalIds || [], motionAllowed: options.motionAllowed !== false };
+  const runtimeConfig = { nonce, ids: probeConfig.ids, patches: componentPatches(project, drafts) };
+  const runtimeScript = project.runtime ? `<script>(${installComponentRuntime.toString()})(${JSON.stringify(runtimeConfig).replace(/</g, '\\u003c')});<\/script>` : '';
+  const instrumentation = runtimeScript + (options.standalone ? '' : `<script>(${installComponentProbe.toString()})(${JSON.stringify(probeConfig).replace(/</g, '\\u003c')});<\/script>`);
   const head = `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${escapeHTML(policy)}"><meta name="viewport" content="width=device-width, initial-scale=1">${instrumentation}`;
   if (/<head\b[^>]*>/i.test(html)) html = html.replace(/<head\b[^>]*>/i, match => `${match}${head}`);
   else html = `<!doctype html><html><head>${head}</head><body>${html}</body></html>`;
   return { html, warnings: [...warnings], entrypoint: entry };
+}
+export function buildStandaloneProject(project, drafts = new Map()) {
+  return buildPreviewDocument(project, 'standalone-project', drafts, { standalone: true, motionAllowed: false }).html;
 }
 export function changedProjectFiles(project, drafts) {
   return project.files.filter(file => drafts.has(file.path) && drafts.get(file.path) !== file.content).map(file => ({ path: file.path, content: drafts.get(file.path) }));
@@ -187,9 +195,12 @@ export function createProjectWorkspace({ root, onInspectMember, onRequestEdits, 
     activeFrame = record; pendingFrame = null; runningDraft = record.draft;
     record.element.classList.remove('is-pending'); record.element.removeAttribute('aria-hidden'); record.element.removeAttribute('inert'); record.element.removeAttribute('tabindex');
     if (previous) { previous.element.style.pointerEvents = 'none'; retiredFrames.add(previous.element); setTimeout(() => { previous.element.remove(); retiredFrames.delete(previous.element); }, canAnimate() ? 180 : 0); }
-    const missing = canvas.replaceFrame(record.draft ? [] : record.project.components, members, record.geometry, frameSlot.clientWidth, frameSlot.clientHeight, record.draft || !canAnimate() ? [] : record.events);
+    const arrivals = record.draft || !canAnimate() ? [] : record.events.filter(event => !record.project.runtime || record.applied.has(event.componentId));
+    const missing = canvas.replaceFrame(record.draft ? [] : record.project.components, members, record.geometry, frameSlot.clientWidth, frameSlot.clientHeight, arrivals);
+    if (record.project.runtime && arrivals.length) sendToFrame(record, 'hog:component-arrivals', { ids: arrivals.map(event => event.componentId) });
     renderMissingComponents(missing); syncMotion();
-    if (record.error) status(`Preview error: ${record.error}`, true);
+    if (record.componentErrors.size) status([...record.componentErrors].map(([id, message]) => `${id}: ${message}`).join(' '), true);
+    else if (record.error) status(`Preview error: ${record.error}`, true);
     else status(record.draft ? 'Local draft preview · not applied to the project' : `Rendered reported files · revision ${record.project.revision}`);
   }
   function runPreview(useDraft, events = []) {
@@ -208,15 +219,50 @@ export function createProjectWorkspace({ root, onInspectMember, onRequestEdits, 
     frame.setAttribute('inert', ''); frame.setAttribute('tabindex', '-1');
     const local = ['localhost', '127.0.0.1'].includes(window.location.hostname);
     frame.src = local ? new URL('/heartofgold/project-preview.html', window.location.origin).href : PREVIEW_URL;
-    const record = { element: frame, nonce, project, renderKey: projectRenderKey(project), draft: useDraft, events: combinedEvents, sent: false, html: built.html, geometry: null, error: null, timer: null };
+    const record = { element: frame, nonce, project, renderKey: projectRenderKey(project), draft: useDraft, events: combinedEvents, sent: false, html: built.html, geometry: null, error: null, timer: null, shellKey: componentShellKey(project), applied: new Map(), attempted: new Map(), componentErrors: new Map(), patchEvents: new Map() };
+    for (const patch of componentPatches(project, useDraft ? drafts : new Map())) record.attempted.set(patch.id, patch);
     pendingFrame = record; frameSlot.insertBefore(frame, get('component-overlay'));
     record.timer = setTimeout(() => { if (pendingFrame !== record) return; removeFrame(record); pendingFrame = null; status(activeFrame ? `New preview unavailable. Showing revision ${activeFrame.project.revision}; latest Source is available.` : 'This host did not open the sandbox preview. Source and Changes remain available.', true); }, 12000);
+  }
+  function patchRuntime(record, events = []) {
+    if (!record || record.draft || !project.runtime || record.shellKey !== componentShellKey(project)) return false;
+    if (record === activeFrame && pendingFrame) { removeFrame(pendingFrame); pendingFrame = null; }
+    record.project = project; record.renderKey = projectRenderKey(project);
+    const patches = componentPatches(project), ids = project.components.map(component => component.id);
+    const changed = patches.filter(patch => record.attempted.get(patch.id)?.digest !== patch.digest);
+    for (const patch of changed) { record.attempted.set(patch.id, patch); const receipt = events.find(event => event.componentId === patch.id); if (receipt) record.patchEvents.set(patch.id, receipt); else record.patchEvents.delete(patch.id); }
+    for (const id of record.attempted.keys()) if (!patches.some(patch => patch.id === id)) { record.attempted.delete(id); record.applied.delete(id); record.componentErrors.delete(id); record.patchEvents.delete(id); }
+    canvas.update(project.components, members);
+    // Send all desired mappings so removed components can dispose their state.
+    if (changed.length || record.runtimeIds !== JSON.stringify(patches.map(patch => patch.id))) {
+      record.runtimeIds = JSON.stringify(patches.map(patch => patch.id));
+      sendToFrame(record, 'hog:component-patches', { ids, patches: patches.map(patch => record.attempted.get(patch.id) || patch) });
+    }
+    return true;
   }
   function onMessage(event) {
     const record = [pendingFrame, activeFrame].find(frame => frame && event.source === frame.element.contentWindow);
     if (!record || !event.data || typeof event.data !== 'object') return;
     if (event.data.type === 'hog:preview-ready') { if (!record.sent) { record.sent = true; sendToFrame(record, 'hog:render-project', { html: record.html }); record.html = ''; } return; }
     if (event.data.nonce !== record.nonce) return;
+    if (event.data.type === 'hog:component-applied' || event.data.type === 'hog:component-error') {
+      const patch = record.attempted.get(event.data.id);
+      if (!patch || event.data.digest !== patch.digest || event.data.revision !== patch.revision) return;
+      if (event.data.type === 'hog:component-error') {
+        record.componentErrors.set(patch.id, clip(event.data.message, 240) || 'The component source is not ready to run.');
+        if (record === activeFrame) status(`${patch.id}: ${record.componentErrors.get(patch.id)} Previous runnable content retained.`, true);
+        return;
+      }
+      record.componentErrors.delete(patch.id); record.applied.set(patch.id, patch.digest);
+      record.geometry = sanitizedComponentGeometry(event.data, new Set(record.project.components.map(component => component.id)), frameSlot.clientWidth, frameSlot.clientHeight);
+      if (record === activeFrame) {
+        useGeometry(record);
+        const receipt = record.patchEvents.get(patch.id); record.patchEvents.delete(patch.id);
+        if (receipt && !event.data.unchanged && canAnimate()) { canvas.update(record.project.components, members, [receipt]); sendToFrame(record, 'hog:component-arrivals', { ids: [patch.id] }); }
+        if (!record.componentErrors.size) status(`Rendered reported components · revision ${record.project.revision}`);
+      }
+      return;
+    }
     if (event.data.type === 'hog:project-ready') promoteFrame(record);
     else if (event.data.type === 'hog:component-geometry') { record.geometry = sanitizedComponentGeometry(event.data, new Set(record.project.components.map(component => component.id)), frameSlot.clientWidth, frameSlot.clientHeight); if (record === activeFrame) useGeometry(record); }
     else if (event.data.type === 'hog:project-error') { record.error = clip(event.data.message, 300) || 'The submitted code reported an error.'; if (record === activeFrame) status(`Preview error: ${record.error}`, true); }
@@ -261,7 +307,7 @@ export function createProjectWorkspace({ root, onInspectMember, onRequestEdits, 
       if (!project.changes.length) changesList.append(make('li', 'muted', 'No changed files in this revision.'));
       get('project-checks').replaceChildren(...project.checks.map(check => { const row = make('li', 'project-check'); row.dataset.status = check.status; row.append(make('span', '', `${check.status.replace('_', ' ')} · ${check.name}`)); if (check.details) row.append(make('p', '', check.details)); if (check.command) row.append(make('code', '', check.command)); return row; }));
       get('project-checks-empty').hidden = !!project.checks.length;
-      if (changed && !drafts.size) runPreview(false, arrivals);
+      if (changed && !drafts.size) { if (!activeFrame?.ready || !patchRuntime(activeFrame, arrivals)) runPreview(false, arrivals); }
       else if (changed && drafts.size) status('A newer reported project arrived. Your local edits are preserved; run your draft or reload the reported preview.');
       else { updateFrameRegistry(activeFrame); updateFrameRegistry(pendingFrame); }
       setMode(mode);

@@ -65,7 +65,7 @@ export async function createHostedServer({
   const parsedOrigin = new URL(publicOrigin);
   if (parsedOrigin.origin !== publicOrigin || (parsedOrigin.protocol !== 'https:' && !(dev && ['localhost', '127.0.0.1'].includes(parsedOrigin.hostname)))) throw new Error('PUBLIC_ORIGIN must be an HTTPS origin (localhost HTTP requires HOSTED_DEV=true).');
   const pluginResource = path.join(ROOT, 'plugins/heart-of-gold/ui/dist/flight-deck.html');
-  const plugin = await createPluginHandler({ resourcePath: pluginResource });
+  const plugin = await createPluginHandler({ resourcePath: pluginResource, publicOrigin });
   const pluginOrigins = new Set([publicOrigin, 'https://chatgpt.com', 'https://chat.openai.com']);
   const gate = new SharedGate(globalConcurrency);
   const globalRequests = new WindowRateLimit({ limit: 1200, windowMs: 60000, now });
@@ -126,6 +126,11 @@ export async function createHostedServer({
       const url = new URL(req.url, publicOrigin);
       if (req.method === 'GET' && url.pathname === `${BASE}/api/health`) return send(res, 200, { ok: true, version: '0.2.0' });
       if (ingressToken && !equal(req.headers['x-hog-ingress'], ingressToken)) throw httpError(403, 'INGRESS_DENIED', 'Use the ProjectForty2 flight deck.');
+      // Capability-authenticated artifact traffic has its own bounded write and
+      // stream budgets. It never reads provider sessions or website cookies.
+      if ([`${BASE}/artifacts/write`, `${BASE}/artifacts/events`].includes(url.pathname)) {
+        await plugin.handleArtifacts(req, res); return;
+      }
       const ip = ingressToken && req.headers['x-hog-client-ip'] ? String(req.headers['x-hog-client-ip']).slice(0, 100) : req.socket.remoteAddress;
       if (!globalRequests.take('all') || !ipRequests.take(ip)) throw httpError(429, 'REQUEST_LIMIT', 'Too many requests. Please wait a minute.');
       // The plugin is a public, stateless transformation endpoint. It never
@@ -156,7 +161,7 @@ export async function createHostedServer({
       if (req.method === 'GET' && url.pathname === `${BASE}/plugin-preview/`) {
         const html = await readFile(pluginResource, 'utf8');
         const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match => `'sha256-${createHash('sha256').update(match[1]).digest('base64')}'`).join(' ');
-        res.setHeader('Content-Security-Policy', `default-src 'none'; script-src ${hashes}; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; frame-src ${publicOrigin}; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`);
+        res.setHeader('Content-Security-Policy', `default-src 'none'; script-src ${hashes}; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src ${publicOrigin}; frame-src ${publicOrigin}; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(html); return;
       }
       if (req.headers['sec-fetch-site'] === 'cross-site' || (req.headers.origin && req.headers.origin !== publicOrigin)) throw httpError(403, 'ORIGIN_DENIED', 'Requests must come from the ProjectForty2 flight deck.');

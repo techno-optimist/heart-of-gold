@@ -23,7 +23,7 @@ async function fixture(t, options = {}) {
   const resourcePath = join(directory, 'flight-deck.html');
   await writeFile(resourcePath, '<!doctype html><html><body>Flight deck fixture</body></html>');
   const plugin = await createPluginHandler({ resourcePath, ...options });
-  const server = http.createServer((req, res) => { plugin.handle(req, res).catch(() => res.destroy()); });
+  const server = http.createServer((req, res) => { (req.url.startsWith('/heartofgold/artifacts/') ? plugin.handleArtifacts(req, res) : plugin.handle(req, res)).catch(() => res.destroy()); });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${server.address().port}/heartofgold/mcp`;
   t.after(async () => { await plugin.close(); await new Promise(resolve => server.close(resolve)); await rm(directory, { recursive: true, force: true }); });
@@ -144,10 +144,10 @@ test('MCP creates only one render tool; updates are UI-less and app polling tool
   const { rpc } = await fixture(t);
   const initialized = await rpc('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'test', version: '1' } });
   assert.equal(initialized.response.status, 200); assert.equal(initialized.value.result.serverInfo.name, 'heart-of-gold');
-  assert.equal(initialized.value.result.serverInfo.version, '0.6.0');
+  assert.equal(initialized.value.result.serverInfo.version, '0.7.0');
   assert.equal(initialized.response.headers.get('mcp-session-id'), null); assert.equal(initialized.response.headers.get('set-cookie'), null);
   const listed = await rpc('tools/list');
-  assert.deepEqual(listed.value.result.tools.map(tool => tool.name), ['build_crew', 'show_flight', 'update_project', 'read_flight', 'save_plan']);
+  assert.deepEqual(listed.value.result.tools.map(tool => tool.name), ['build_crew', 'show_flight', 'update_project', 'open_artifact_stream', 'read_flight', 'save_plan']);
   for (const tool of listed.value.result.tools) {
     assert.deepEqual(tool.securitySchemes, [{ type: 'noauth' }]);
     assert.equal(tool.annotations.readOnlyHint, tool.name === 'read_flight'); assert.equal(tool.annotations.openWorldHint, false);
@@ -271,23 +271,23 @@ test('MCP publishes real bounded files to one board, preserves them through prog
   assert.deepEqual(await readdir(directory), ['flight-deck.html']);
 });
 
-test('MCP resource is self-contained with no network domains', async t => {
+test('MCP resource permits only the explicit artifact service connection and isolated preview origin', async t => {
   const { rpc } = await fixture(t);
   const list = await rpc('resources/list'); assert.equal(list.value.result.resources[0].uri, FLIGHT_RESOURCE_URI);
   const read = await rpc('resources/read', { uri: FLIGHT_RESOURCE_URI });
   const resource = read.value.result.contents[0];
   assert.equal(resource.mimeType, FLIGHT_RESOURCE_MIME); assert(resource.text.includes('Flight deck fixture'));
-  assert.deepEqual(resource._meta.ui.csp, { connectDomains: [], resourceDomains: [], frameDomains: ['https://projectforty2.ai'] });
-  assert.deepEqual(resource._meta['openai/widgetCSP'], { connect_domains: [], resource_domains: [], frame_domains: ['https://projectforty2.ai'] });
+  assert.deepEqual(resource._meta.ui.csp, { connectDomains: ['https://projectforty2.ai'], resourceDomains: [], frameDomains: ['https://projectforty2.ai'] });
+  assert.deepEqual(resource._meta['openai/widgetCSP'], { connect_domains: ['https://projectforty2.ai'], resource_domains: [], frame_domains: ['https://projectforty2.ai'] });
   assert.equal(resource._meta.ui.domain, 'https://projectforty2.ai');
   assert(!resource.text.includes('PRIVATE-A'));
 });
 
-test('v11 opens the canvas-first deck while earlier resources remain readable', async t => {
+test('v12 opens the live artifact deck while earlier resources remain readable', async t => {
   const { rpc } = await fixture(t);
-  assert.equal(FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v11.html');
+  assert.equal(FLIGHT_RESOURCE_URI, 'ui://heart-of-gold/flight-deck-v12.html');
   const listed = (await rpc('resources/list')).value.result.resources;
-  assert.deepEqual(listed.map(resource => resource.uri), [FLIGHT_RESOURCE_URI, ...Array.from({ length: 10 }, (_, index) => `ui://heart-of-gold/flight-deck-v${index + 1}.html`)]);
+  assert.deepEqual(listed.map(resource => resource.uri), [FLIGHT_RESOURCE_URI, ...Array.from({ length: 11 }, (_, index) => `ui://heart-of-gold/flight-deck-v${index + 1}.html`)]);
   const outputs = await Promise.all(listed.map(resource => rpc('resources/read', { uri: resource.uri })));
   for (const [index, output] of outputs.entries()) {
     assert.equal(output.value.result.contents[0].uri, listed[index].uri);
@@ -306,6 +306,26 @@ test('MCP malformed tool arguments fail instead of rendering invented execution'
   assert.equal(result.value.result.isError, true); assert.equal(result.value.result.structuredContent, undefined);
   const unknown = await rpc('tools/call', { name: 'spawn_agents', arguments: {} });
   assert(unknown.value.error || unknown.value.result?.isError);
+});
+
+test('MCP mints an artifact-only bridge capability and its writes update the same readable board', async t => {
+  const { rpc, url } = await fixture(t);
+  const created = (await rpc('tools/call', { name: 'build_crew', arguments: { mission: 'Create a live component.', crewSize: 3 } })).value.result;
+  const snapshot = created.structuredContent;
+  const progress = requestInput(snapshot); progress.execution = 'guided_passes'; progress.status = 'working'; progress.members[1].status = 'working';
+  const working = (await rpc('tools/call', { name: 'show_flight', arguments: { ...progress, ...writer(snapshot) } })).value.result.structuredContent;
+  const opened = (await rpc('tools/call', { name: 'open_artifact_stream', arguments: { ...writer(snapshot), expectedRevision: working.flight.revision,
+    bindings: [{ componentId: 'entry', label: 'Entry form', memberId: progress.members[1].id, filePaths: ['entry.html'] }] } })).value.result;
+  assert.equal(opened.isError, undefined); assert.equal(opened._meta?.ui?.resourceUri, undefined);
+  const channel = opened.structuredContent; assert.equal(channel.flightId, snapshot.flight.id); assert.equal(channel.currentProjectRevision, 0);
+  assert.equal(channel.ingestUrl, 'https://projectforty2.ai/heartofgold/artifacts/write'); assert.equal(channel.eventsUrl, channel.flight.eventsUrl);
+  assert.deepEqual(channel.scopedFiles, [{ path: 'entry.html', sha256: null }]);
+  const response = await fetch(new URL('/heartofgold/artifacts/write', url), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ flightId: channel.flightId, artifactToken: channel.artifactToken, expectedProjectRevision: 0, batchId: 'first-real-save', upserts: [{ path: 'entry.html', content: '<form>Actual authored source</form>' }], deletePaths: [] }) });
+  assert.equal(response.status, 200); assert.equal((await response.json()).projectRevision, 1);
+  const read = (await rpc('tools/call', { name: 'read_flight', arguments: reader(created) })).value.result.structuredContent;
+  assert.equal(read.project.files[0].content, '<form>Actual authored source</form>');
+  assert(!JSON.stringify(read).includes(channel.artifactToken));
 });
 
 test('HTTP rejects unsupported streaming/session methods, malformed JSON and oversized actual bytes', async t => {

@@ -7,7 +7,8 @@ import { createComponentCanvas } from '../plugins/heart-of-gold/ui/component-can
 function fixture(t) {
   const animations = [];
   class Element {
-    constructor() {
+    constructor(tag = 'div') {
+      this.tagName = tag; this.attributes = {}; this.listeners = [];
       this.dataset = {}; this.children = []; this.className = ''; this.hidden = false;
       this.style = { setProperty(name, value) { this[name] = value; } };
       this.classList = {
@@ -17,8 +18,8 @@ function fixture(t) {
         contains: name => this.className.split(' ').includes(name),
       };
     }
-    setAttribute() {}
-    addEventListener() {}
+    setAttribute(name, value) { this.attributes[name] = value; }
+    addEventListener(name) { this.listeners.push(name); }
     append(...children) { for (const child of children) { child.parent = this; this.children.push(child); } }
     remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); }
     animate(keyframes, options) {
@@ -28,7 +29,7 @@ function fixture(t) {
   }
   const reduced = { matches: false, addEventListener() {}, removeEventListener() {} };
   const globals = {
-    document: { hidden: false, createElement: () => new Element(), createElementNS: () => new Element() },
+    document: { hidden: false, createElement: tag => new Element(tag), createElementNS: (namespace, tag) => new Element(tag) },
     matchMedia: () => reduced,
     getComputedStyle: element => ({ transform: element.style.transform || 'none' }),
   };
@@ -113,4 +114,19 @@ test('paused source-frame handoffs update geometry without starting or deferring
   canvas.setPaused(false);
   canvas.geometry(geometry(260, 130), WIDTH, HEIGHT);
   assert.equal(animations.length, 0);
+});
+
+test('component annotations are passive and a finished worker clears its own overlay immediately', t => {
+  const { canvas, animations, cursor, region } = fixture(t);
+  canvas.replaceFrame(components, members, geometry(10,20), WIDTH, HEIGHT, [event(1)]);
+  assert.equal(cursor().tagName, 'div');
+  assert.equal(cursor().attributes['aria-hidden'], 'true');
+  assert.equal(cursor().attributes.tabindex, undefined);
+  assert.deepEqual(cursor().listeners, []);
+  canvas.update(components, [{...members[0],status:'complete'}]);
+  assert.equal(cursor(), undefined); assert.equal(region(), undefined); assert.equal(animations[0].cancelled, true);
+  canvas.update(components, members);
+  assert.ok(cursor()); assert.equal(animations.length, 1, 'resumed status alone cannot replay old source work');
+  canvas.update(components, members, [event(2)]);
+  assert.equal(animations.length, 2, 'new accepted work still receives its accent');
 });
