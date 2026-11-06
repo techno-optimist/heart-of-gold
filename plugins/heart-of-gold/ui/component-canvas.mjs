@@ -6,7 +6,7 @@ export function componentEventsSince(events, lastSeq, baseline = false) {
 }
 export function projectRenderKey(project) {
   const entrypoint = project.entrypoint || (project.files.some(file => file.path === 'index.html') ? 'index.html' : project.files.find(file => /\.html?$/i.test(file.path))?.path || '');
-  return JSON.stringify([project.sourceDigest || project.files.map(file => [file.path, file.sha256 || file.content]), entrypoint]);
+  return JSON.stringify([project.sourceDigest || project.files.map(file => [file.path, file.sha256 || file.content]), entrypoint, project.runtime || null]);
 }
 export function boundedComponentRects(payload, allowedIds, width, height) {
   const result = new Map();
@@ -111,21 +111,11 @@ export function createComponentCanvas({ layer, onInspectMember, onSource }) {
     svg.append(stroke); box.append(svg, make('span', 'component-sweep')); layer.append(box); regions.set(component.id, box); return box;
   }
   function createCursor(memberId) {
-    const button = make('button', 'component-cursor'); button.type = 'button'; button.dataset.memberId = memberId;
+    const button = make('div', 'component-cursor'); button.dataset.memberId = memberId; button.setAttribute('aria-hidden', 'true');
     const arrow = make('span', 'cursor-shape'); arrow.setAttribute('aria-hidden', 'true');
     const name = make('span', 'component-cursor-name'), label = make('span', 'component-cursor-label');
     const tag = make('span', 'component-cursor-tag'); tag.append(name, label); button.append(arrow, tag); layer.append(button);
     const record = { memberId, button, name, label, holds: { hover: false, focus: false, press: false }, component: null, animation: null };
-    const hold = (reason, value) => {
-      record.holds[reason] = value;
-      const held = Object.values(record.holds).some(Boolean); button.classList.toggle('is-held', held);
-      if (held && record.animation) { const transform = getComputedStyle(button).transform; record.animation.cancel(); record.animation = null; button.style.transform = transform; }
-      if (!held) render();
-    };
-    button.addEventListener('pointerenter', event => { if (event.pointerType !== 'touch') hold('hover', true); }); button.addEventListener('pointerleave', () => hold('hover', false));
-    button.addEventListener('focus', () => hold('focus', true)); button.addEventListener('blur', () => hold('focus', false));
-    button.addEventListener('pointerdown', () => hold('press', true)); button.addEventListener('pointerup', () => hold('press', false)); button.addEventListener('pointercancel', () => hold('press', false));
-    button.addEventListener('click', () => { if (!record.component) return; const member = members.find(item => item.id === memberId); if (member) onInspectMember(memberId); else onSource(record.component.filePaths[0]); });
     cursors.set(memberId, record); return record;
   }
   function animateRegion(component, box) {
@@ -150,20 +140,22 @@ export function createComponentCanvas({ layer, onInspectMember, onSource }) {
     effectTimers.add(timer);
   }
   function render() {
-    const known = new Set(components.map(component => component.id));
+    const finished = new Set(members.filter(member => ['complete', 'cancelled', 'failed'].includes(member.status)).map(member => member.id));
+    const visibleComponents = components.filter(component => !finished.has(component.memberId));
+    const known = new Set(visibleComponents.map(component => component.id));
     for (const [id, box] of regions) if (!known.has(id)) { box.remove(); regions.delete(id); }
-    for (const component of components) {
+    for (const component of visibleComponents) {
       const rect = rects.get(component.id); let box = regions.get(component.id);
       if (!box) box = createRegion(component);
       box.hidden = !rect; if (!rect) continue;
       box.style.setProperty('--component-color', colorFor(component.memberId));
       Object.assign(box.style, { left: `${rect.x}px`, top: `${rect.y}px`, width: `${rect.width}px`, height: `${rect.height}px` });
     }
-    const ownerIds = new Set(components.map(component => component.memberId));
-    for (const [id, cursor] of cursors) if (!ownerIds.has(id)) { cursor.button.remove(); cursors.delete(id); }
+    const ownerIds = new Set(visibleComponents.map(component => component.memberId));
+    for (const [id, cursor] of cursors) if (!ownerIds.has(id)) { cursor.animation?.cancel(); cursor.button.remove(); cursors.delete(id); }
     let placed = [];
     for (const memberId of ownerIds) {
-      const available = components.filter(component => component.memberId === memberId && rects.has(component.id));
+      const available = visibleComponents.filter(component => component.memberId === memberId && rects.has(component.id));
       let record = cursors.get(memberId); if (!record) record = createCursor(memberId);
       if (!available.length) { record.button.hidden = true; continue; }
       record.button.hidden = false;
@@ -183,7 +175,7 @@ export function createComponentCanvas({ layer, onInspectMember, onSource }) {
       record.button.style.transform = `translate3d(${x}px,${y}px,0)`;
     }
     for (const [id, receipt] of pendingArrivals) {
-      if (performance.now() > receipt.expiresAt) { pendingArrivals.delete(id); continue; }
+      if (!known.has(id) || performance.now() > receipt.expiresAt) { pendingArrivals.delete(id); continue; }
       const component = components.find(item => item.id === id), box = regions.get(id);
       if (!component || !box || !rects.has(id)) continue;
       pendingArrivals.delete(id); animateRegion(component, box);
@@ -196,13 +188,31 @@ export function createComponentCanvas({ layer, onInspectMember, onSource }) {
   }
   function onReduced() { if (reduced.matches) stopEffects(); layer.dataset.reduced = String(reduced.matches); }
   reduced.addEventListener('change', onReduced); onReduced();
+  function acceptEvents(events) {
+    if (!events.length) return;
+    lastEvents = [...lastEvents, ...events].slice(-64);
+    if (!paused && !reduced.matches && !document.hidden) for (const event of events) pendingArrivals.set(event.componentId, { event, expiresAt: performance.now() + 2200 });
+  }
+  function setGeometry(payload, width, height) {
+    viewWidth = width; viewHeight = height;
+    rects = boundedComponentRects(payload, new Set(components.map(component => component.id)), width, height);
+    const missing = new Set(Array.isArray(payload?.missing) ? payload.missing : []);
+    return components.filter(component => missing.has(component.id));
+  }
   return {
     update(nextComponents, nextMembers, events = []) {
       components = nextComponents; members = nextMembers;
-      if (events.length) { lastEvents = [...lastEvents, ...events].slice(-64); if (!paused && !reduced.matches && !document.hidden) for (const event of events) pendingArrivals.set(event.componentId, { event, expiresAt: performance.now() + 2200 }); }
+      acceptEvents(events);
       render();
     },
-    geometry(payload, width, height) { viewWidth = width; viewHeight = height; rects = boundedComponentRects(payload, new Set(components.map(component => component.id)), width, height); render(); const missing = new Set(Array.isArray(payload?.missing) ? payload.missing : []); return components.filter(component => missing.has(component.id)); },
+    replaceFrame(nextComponents, nextMembers, payload, width, height, events = []) {
+      // A repeated component ID does not make geometry from another source
+      // frame valid. Commit the new frame's bounds before accepting receipts.
+      stopEffects(); components = nextComponents; members = nextMembers;
+      const missing = setGeometry(payload, width, height);
+      acceptEvents(events); render(); return missing;
+    },
+    geometry(payload, width, height) { const missing = setGeometry(payload, width, height); render(); return missing; },
     setPaused(value) { paused = !!value; layer.dataset.paused = String(paused); if (paused) stopEffects(); },
     clear() { components = []; rects.clear(); stopEffects(); render(); },
     destroy() { stopEffects(); reduced.removeEventListener('change', onReduced); for (const cursor of cursors.values()) cursor.button.remove(); for (const box of regions.values()) box.remove(); },

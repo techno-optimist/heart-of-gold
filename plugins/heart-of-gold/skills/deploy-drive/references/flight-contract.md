@@ -1,8 +1,8 @@
 # Persistent flight contract
 
-`build_crew` opens one deck with resource `ui://heart-of-gold/flight-deck-v10.html`. Quiet data tools update and read its temporary server state without rendering another card. The tools do not run the crew: report only work performed by this chat or actual host workers.
+`build_crew` opens one deck with resource `ui://heart-of-gold/flight-deck-v12.html`. Quiet data tools update and read its temporary server state without rendering another card. The tools do not run the crew: report only work performed by this chat or actual host workers.
 
-The v10 resource gives the compact presentation and terminal overlay dismissal a fresh host cache identity. Component overlays disappear when the flight is complete or partial, leaving project controls usable; Crew and Source retain contribution inspection. Earlier resource URIs remain readable, but refreshing tool metadata does not establish that an already rendered card has reloaded its HTML. Keep using the existing flight for work; do not create another card merely to refresh its appearance.
+The v12 resource (UI revision 8.5) retains the 420px inline frame and approximately 330px project canvas. It adds optional continuous saved-file updates and in-place component mounting. Secondary controls stay in More. Complete or partial flights hide construction overlays; Crew and Source remain available. Earlier resource URIs remain readable, but an already rendered card may keep cached HTML. Do not open another card merely to refresh appearance.
 
 ## `build_crew`
 
@@ -71,6 +71,7 @@ The `project` object contains:
 | `files` | Required complete array of 1–24 selected text files |
 | `checks` | Required array of 0–24 actual check records; `[]` is valid and old checks are not carried automatically |
 | `components` | Optional array of up to 12 component mappings described below; omission preserves prior mappings, while `[]` clears them |
+| `runtime` | Optional explicit `components-v1` mapping described below; use only for component-aware apps |
 | `changedComponentIds` | Optional array of up to 12 component IDs genuinely changed in this update; each must map to an actual changed included file hash |
 
 Each file is `{ path, content, memberId, workerId?, summary? }`. Paths are unique including case-insensitive comparisons, at most 160 characters and eight non-hidden segments, starting each segment with a letter or digit. Use `/` between regular segments; no absolute paths, traversal, or backslashes. Supported extensions: `html`, `htm`, `css`, `js`, `mjs`, `md`, `markdown`, `json`, `txt`. Content is exact UTF-8 text, at most 64 KiB per file, with no null bytes. Optional change summaries are at most 500 characters.
@@ -101,6 +102,34 @@ Success returns `{ flight: { id, revision, expiresAt }, updated: true, projectRe
 
 The tool does not execute submitted code, run checks, fetch links, install dependencies, write repository files, or deploy anything. The deck can inspect source and attempt an isolated preview of supported self-contained files; rendering depends on host support. Preserve the actual host artifact and report unavailable preview or testing capabilities truthfully. Source submission is not authorization to publish the user's code publicly.
 
+## Continuous saved-file path
+
+`open_artifact_stream` is model-only and data-only; it never opens another card. Pass `{flightId,writeToken,expectedRevision,bindings}`. Each binding is `{componentId,label,memberId,workerId?,filePaths}`. Paths must be exact, disjoint, bounded source paths; they may be future component files. Each binding must match a current crew member and actual host worker ID where applicable. A binding records lead-supplied ownership, not independently observed process identity.
+
+The response includes `artifactToken`, `ingestUrl`, `eventsUrl`, `projectRevision`, `scopedFiles`, and `expiresAt`. Retain these privately. A new mint rotates the prior artifact capability. It can write only its bound files and expires with the flight. It cannot change the crew, plan, provider credentials, or deployment. Put the lead-owned manifest and private connection data outside the watched directory.
+
+The packaged `scripts/watch-project.mjs` reads one connection JSON object from stdin and watches only the manifest's exact paths under `--root`, with bounded debouncing and a periodic recovery scan. It sends credentialless JSON POST requests to the fixed `ingestUrl`:
+
+```json
+{"flightId":"…","artifactToken":"…","expectedProjectRevision":1,"batchId":"unique-batch-id","upserts":[{"path":"entry.html","content":"exact saved bytes"}],"deletePaths":[]}
+```
+
+Writes compare the project revision, independently of crew-status revisions. Repeated identical batches are idempotent. A conflict returns only scoped current hashes and the current project revision; the bridge may reconcile unrelated changes but stops rather than overwrite an externally changed bound file. Invalid JavaScript is still accepted as source. Checks are cleared on edits. Actual changed hashes derive component receipts; no caller-provided event history is accepted.
+
+The widget receives its fixed `eventsUrl` and existing read capability privately, then opens a credentialless POST SSE connection. Initial connection and reconnect show one authoritative latest snapshot, with no replay of missed source. Only the parent deck connects to ProjectForty2. The generated app remains network-isolated and never receives flight capabilities. Streams and source are bounded and expire with the flight.
+
+### Optional component runtime
+
+For independent preview updates, include:
+
+```json
+{"kind":"components-v1","shellPaths":["index.html","shell.css"],"components":[{"id":"entry","htmlPath":"entry.html","cssPath":"entry.css","scriptPath":"entry.js"}]}
+```
+
+All mapped paths must be actual included files. The real shell contains `<section data-hog-component="entry"></section>` and any unfinished fallback text. Each component HTML is a fragment; CSS is scoped to its shadow root. Its optional script is a function expression `(ctx) => { /* mount actual behavior */; return optionalDispose; }`, not an ES module or globally executed classic script. `ctx` supplies `{root,state,store,signal}`. `state` persists for that component across successful updates. The shared store exposes `get(key)`, `set(key,value)`, and `subscribe(key,callback)` returning an unsubscribe function; subscriptions also end when the component aborts. Register DOM events with `{signal}` and clean up external subscriptions with the returned dispose function. Shadow DOM scopes styling, not JavaScript security; the opaque iframe is the security boundary.
+
+The runtime stages a replacement before swapping the component. A syntax or synchronous mount failure retains the previous valid component and reports the preview error, while Source still shows the received file bytes. Unchanged components stay mounted. Shell changes intentionally reload the full frame; ordinary non-runtime projects retain full-frame fallback. Construction accents require the actual component acknowledgment and measured region. They never imply an agent mouse moved there.
+
 ## Widget reads, edits, and conflicts
 
 The app-only `read_flight` tool accepts `flightId`, `readToken`, and optional `afterRevision`; it returns the latest snapshot when changed. The mounted component performs these reads. The app-only `save_plan` tool saves an edited, unstarted plan using the same write capability and expected revision. Before its brief Engage drive request (Deploy in earlier versions), the UI supplies the updated plan, capability, and revision to model context. The lead must use that current plan rather than replacing it with the original preset.
@@ -111,4 +140,4 @@ A transient protocol `Internal error` (`-32603`) without a specific rejection pe
 
 Flight access expires two hours after creation and activity does not extend it. Expired entries are removed on access or the next cleanup sweep, scheduled every 60 seconds. Only the latest snapshot/project and up to 64 component-event metadata receipts are held; previous source versions are not retained. The 12 component mappings and event metadata count toward the existing 256 KiB project limit. State exists only in this server process and is lost on restart or shutdown. Capacity is limited to 128 flights, 8 MiB total, and 384 KiB per flight including its project. Full capacity rejects new flights or oversized updates; it does not evict a live flight to make room. There is no list endpoint, durable history, account cookie, or capability in a URL.
 
-Snapshots remain host-reported and not independently verified. Updates send a complete crew snapshot or complete selected project, not just the changed item. Keep each tool call below 384 KiB. Summarize long contributions for the board and retain the full deliverable in authorized artifacts or the chat when needed. Keep the final chat response short when the working deck already contains the result.
+Snapshots remain host-reported and not independently verified. MCP updates send a complete crew snapshot or complete selected project. The separately scoped artifact bridge sends bounded changed files. Keep each tool call below 384 KiB. Summarize long contributions for the board and retain the full deliverable in authorized artifacts or the chat when needed. Keep the final chat response short when the working deck already contains the result.

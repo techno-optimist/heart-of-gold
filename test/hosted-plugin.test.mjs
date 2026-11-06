@@ -52,7 +52,7 @@ test('MCP permits exact configured host origins and server-to-server requests on
   const { rpc, flight } = await fixture(t);
   for (const origin of [undefined, ORIGIN, 'https://chatgpt.com', 'https://chat.openai.com']) {
     const { response, value } = await rpc('tools/list', {}, { ...(origin ? { Origin: origin } : {}), 'Sec-Fetch-Site': 'cross-site' });
-    assert.equal(response.status, 200); assert.equal(value.result.tools.length, 5);
+    assert.equal(response.status, 200); assert.equal(value.result.tools.length, 6);
     assert.equal(response.headers.get('access-control-allow-origin'), origin || null);
     if (origin) assert.equal(response.headers.get('vary'), 'Origin');
   }
@@ -115,12 +115,12 @@ test('MCP exception is confined to the exact endpoint', async t => {
   }
 });
 
-test('plugin preview executes only hashed bundled scripts and has no network access or sessions', async t => {
+test('plugin preview executes only hashed bundled scripts and connects only to its own artifact origin', async t => {
   const { base, flight } = await fixture(t);
   const response = await fetch(`${base}/plugin-preview/`);
   assert.equal(response.status, 200); assert.equal(response.headers.get('set-cookie'), null);
   const html = await response.text(); const csp = response.headers.get('content-security-policy');
-  assert(csp.includes("default-src 'none'")); assert(csp.includes("connect-src 'none'"));
+  assert(csp.includes("default-src 'none'")); assert(csp.includes(`connect-src ${ORIGIN};`));
   assert(csp.includes('font-src data:'));
   assert(csp.includes("base-uri 'none'")); assert(csp.includes("form-action 'none'"));
   const scriptPolicy = csp.split(';').find(part => part.trim().startsWith('script-src'));
@@ -137,7 +137,7 @@ test('hosted resource delivery is the built standalone MCP App and cannot hydrat
   assert.equal(response.status, 200);
   const content = value.result.contents[0];
   assert.equal(content.mimeType, FLIGHT_RESOURCE_MIME); assert(content.text.includes('<!doctype html>'));
-  assert.deepEqual(content._meta.ui.csp, { connectDomains: [], resourceDomains: [], frameDomains: ['https://projectforty2.ai'] });
+  assert.deepEqual(content._meta.ui.csp, { connectDomains: [ORIGIN], resourceDomains: [], frameDomains: [ORIGIN] });
   assert(!content.text.includes('/api/connect')); assert(!content.text.includes('/api/runs')); assert.equal(flight.sessions.entries.size, 0);
 });
 
@@ -183,4 +183,21 @@ test('hosted board updates persist between MCP requests while website cookies gr
   assert.equal(denied.value.result._meta.flightError.code, 'FLIGHT_UNAVAILABLE'); assert.equal(denied.value.result.structuredContent, undefined);
   assert.equal(flight.sessions.entries.size, 1);
   const history = await fetch(`${base}/api/runs`, { headers: { Cookie: cookie } }); assert.deepEqual(await history.json(), []);
+});
+
+test('artifact routes mount before website session guards and retain exact CORS and ingress limits', async t => {
+  const {base,flight}=await fixture(t);
+  const origin='https://projectforty2-ai.web-sandbox.oaiusercontent.com';
+  for(const route of ['write','events']){
+    const allowed=await fetch(`${base}/artifacts/${route}`,{method:'OPTIONS',headers:{Origin:origin,'Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type'}});
+    assert.equal(allowed.status,204);assert.equal(allowed.headers.get('access-control-allow-origin'),origin);
+    assert.equal(allowed.headers.get('access-control-allow-credentials'),null);
+    const denied=await fetch(`${base}/artifacts/${route}`,{method:'POST',headers:{Origin:'https://evil.example','Content-Type':'application/json'},body:'{}'});
+    assert.equal(denied.status,403);
+    const credential=await fetch(`${base}/artifacts/${route}`,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Cookie:'unrelated=private'},body:'{}'});
+    assert.equal(credential.status,400);assert.equal((await credential.json()).error.code,'CREDENTIALS_NOT_ALLOWED');
+  }
+  assert.equal(flight.sessions.entries.size,0);
+  const secured=await fixture(t,{ingressToken:'synthetic-ingress'});
+  assert.equal((await fetch(`${secured.base}/artifacts/events`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).status,403);
 });

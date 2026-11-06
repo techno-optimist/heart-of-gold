@@ -1,7 +1,8 @@
 import { App } from '@modelcontextprotocol/ext-apps';
 import { createSwarmField } from '../../../public/swarm-field.mjs';
-import { flightFieldState } from './swarm-adapter.mjs';
+import { flightFieldState, awaitingProjectSource } from './swarm-adapter.mjs';
 import { normalizeProject, createProjectWorkspace } from './project-preview.mjs';
+import { createArtifactStream, artifactEventsUrl } from './artifact-stream.mjs';
 import { inlineFrameHeight } from './frame-size.mjs';
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +29,46 @@ const projectWorkspace = createProjectWorkspace({ root: $('project-workspace'), 
   onRequestEdits: edits => sendToChat('Apply my source edits to this project and update the same flight deck.', () => ({ flightId: state.flight.id, writeToken: state.flight.writeToken, expectedRevision: state.flight.revision, requestedAction: 'apply_project_edits', ...edits, progressInstructions: 'Reconcile these local edited files with the latest project revision, preserve unrelated files, and report the actual resulting complete file set through update_project on this same flight. Do not claim a test passed unless it was run. Do not create another flight deck.' }), 'project_edit'),
   openLink: url => { if (app && state.connected) app.openLink({ url }).catch(() => notify('The host could not open this project link.', 'error')); else window.open(url, '_blank', 'noopener,noreferrer'); },
 });
+const artifactStream = createArtifactStream({
+  getRevision: () => state.flight?.revision,
+  onSnapshot(payload, resync) {
+    const previousFlight = state.flight, previousSignature = state.remoteSignature;
+    try {
+      if (!Array.isArray(payload?.members)) throw new TypeError('Incomplete artifact stream snapshot.');
+      if (rememberFlight({ structuredContent: payload }) === false) return;
+      state.sync = 'watching'; receiveSnapshot(payload, false, resync);
+      state.liveReadBaseline = true; state.streamConnected = true; state.pollFailures = 0;
+      stopPolling(); refreshSyncLabel();
+    } catch (error) { state.flight = previousFlight; state.remoteSignature = previousSignature; throw error; }
+  },
+  onState(status) {
+    state.streamStatus = status;
+    if (status === 'expired') { state.streamConnected = false; state.expired = true; state.sync = 'unavailable'; stopPolling(); render(); }
+    else if (status === 'interrupted') { state.streamConnected = false; state.sync = 'reconnecting'; refreshSyncLabel(); schedulePoll(0); }
+  },
+});
+function syncArtifactStream() {
+  if (isPreview || state.tornDown || !state.connected || state.expired || document.hidden) { artifactStream.stop(); state.streamConnected = false; return; }
+  artifactStream.start(state.flight);
+}
+const presentationHomes = new Map(['open-crew', 'open-log', 'open-report', 'fork-plan', 'open-guide', 'mission-title'].map(id => {
+  const node = id === 'mission-title' ? $('mission-title').closest('.scene-state') : $(id);
+  return [id, { node, parent: node.parentElement }];
+}));
+function syncProjectPresentation(hasProject) {
+  const active = document.activeElement;
+  for (const [id, { node, parent }] of presentationHomes) {
+    const target = !hasProject ? parent : id === 'mission-title' ? document.querySelector('.masthead') : id === 'open-crew' ? $('project-crew-slot') : $('project-tools-menu');
+    if (node.parentElement !== target) target.append(node);
+  }
+  if (active instanceof HTMLElement && active !== document.activeElement && !document.querySelector('dialog[open]')) active.focus({ preventScroll: true });
+  if (!hasProject) $('project-tools').open = false;
+}
+$('project-tools').addEventListener('keydown', event => {
+  if (event.key === 'Escape' && $('project-tools').open) { event.preventDefault(); $('project-tools').open = false; $('project-tools').querySelector('summary').focus(); }
+});
+document.addEventListener('pointerdown', event => { if ($('project-tools').open && !$('project-tools').contains(event.target)) $('project-tools').open = false; });
+
 let displayedMission = '';
 let pollTimer;
 
@@ -81,7 +122,7 @@ function rememberFlight(result) {
   if (typeof flight.id !== 'string' || !Number.isInteger(flight.revision) || !Number.isFinite(Date.parse(flight.expiresAt))) throw new Error('The service returned incomplete flight metadata.');
   if (state.flight && flight.revision < state.flight.revision) return false;
   const readToken = result?._meta?.flight?.readToken;
-  state.flight = { ...state.flight, id: flight.id, revision: flight.revision, expiresAt: flight.expiresAt, ...(typeof flight.writeToken === 'string' ? { writeToken: flight.writeToken } : {}), ...(typeof readToken === 'string' ? { readToken } : {}) };
+  state.flight = { ...state.flight, id: flight.id, revision: flight.revision, expiresAt: flight.expiresAt, ...(typeof flight.eventsUrl === 'string' && artifactEventsUrl(flight.eventsUrl) ? { eventsUrl: flight.eventsUrl } : {}), ...(typeof flight.writeToken === 'string' ? { writeToken: flight.writeToken } : {}), ...(typeof readToken === 'string' ? { readToken } : {}) };
   return true;
 }
 function safeSyncDiagnostic(error, phase) {
@@ -131,7 +172,7 @@ function describeMilestone(previous, next) {
 }
 function syncFieldMotion() {
   const reportsUnavailable = !isPreview && (!state.connected || state.expired || state.cached || state.sync === 'reconnecting');
-  const pause = motionPaused || reportsUnavailable || !!state.snapshot?.project;
+  const pause = motionPaused || reportsUnavailable || !!state.snapshot?.project || awaitingProjectSource(state.snapshot);
   if (pause !== appliedMotionPause) { appliedMotionPause = pause; swarmField.setPaused(pause); }
   projectWorkspace.setMotionState({ paused: motionPaused || reportsUnavailable || document.hidden, userPaused: motionPaused, available: !reportsUnavailable });
 }
@@ -160,7 +201,8 @@ function refreshSyncLabel() {
 }
 function stopPolling() { clearTimeout(pollTimer); pollTimer = undefined; }
 function schedulePoll(delay) {
-  stopPolling();
+  stopPolling(); syncArtifactStream();
+  if (state.streamConnected) return;
   if (isPreview || state.tornDown || !state.connected || !state.flight?.readToken || !app.getHostCapabilities()?.serverTools || state.expired || document.hidden) return;
   const wait = delay ?? (state.pollFailures ? Math.min(30000, 3000 * 2 ** state.pollFailures) : terminal() && !state.awaitingUpdate ? 15000 : 2000);
   pollTimer = setTimeout(() => { pollFlight(); }, wait);
@@ -191,7 +233,7 @@ async function pollFlight(manual = false) {
   }
 }
 
-document.addEventListener('visibilitychange', () => { if (document.hidden) stopPolling(); else schedulePoll(0); refreshSyncLabel(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { stopPolling(); syncArtifactStream(); } else schedulePoll(0); refreshSyncLabel(); });
 $('refresh-flight').addEventListener('click', () => { stopPolling(); pollFlight(true); });
 
 function renderMission(mission) {
@@ -400,11 +442,29 @@ function renderInspector() {
   $('challenge-branch').disabled = state.busy || state.messageUnconfirmed || state.expired || state.cached || (!isPreview && (!state.connected || !state.canMessage || !state.flight?.writeToken));
 }
 
+function renderProjectPreparation(snapshot) {
+  const signature = JSON.stringify(snapshot.members.map(({ id, name, role, status }) => ({ id, name, role, status })));
+  if (state.preparationSignature === signature) return;
+  state.preparationSignature = signature;
+  $('preparation-crew').replaceChildren(...snapshot.members.map(member => {
+    const row = el('li', 'preparation-member');
+    const identity = el('span', 'preparation-identity');
+    identity.append(el('strong', '', member.name), el('span', '', member.role));
+    row.append(identity, el('span', 'preparation-status', member.status === 'planned' ? 'Queued' : label(member.status)));
+    return row;
+  }));
+}
+
 function render() {
   const snapshot = state.snapshot;
   $('deck').dataset.hasSnapshot = String(!!snapshot);
   $('deck').dataset.hasProject = String(!!snapshot?.project);
-  $('pause-motion').hidden = !!snapshot?.project;
+  syncProjectPresentation(!!snapshot?.project);
+  const preparingProject = awaitingProjectSource(snapshot);
+  $('deck').dataset.preparingProject = String(preparingProject);
+  $('project-preparation').hidden = !preparingProject;
+  $('pause-motion').hidden = !!snapshot?.project || preparingProject;
+  if (preparingProject) renderProjectPreparation(snapshot);
   syncFieldMotion();
   projectWorkspace.update(snapshot?.project || null, snapshot?.members || [], !state.busy && !state.messageUnconfirmed && !state.expired && !state.cached && state.connected && state.canMessage && !!state.flight?.writeToken, { baseline: state.projectHydration });
   $('deck').dataset.phase = snapshot?.status || 'idle';
@@ -627,6 +687,8 @@ function applyHostContext(context = {}) {
   const mode = state.hostContext.displayMode === 'fullscreen' ? 'inline' : 'fullscreen';
   $('expand').hidden = !state.connected || !state.hostContext.availableDisplayModes?.includes(mode);
   $('expand').textContent = mode === 'inline' ? 'Back to chat ↙' : 'Open flight deck ⤢';
+  $('expand').setAttribute('aria-label', mode === 'inline' ? 'Back to chat' : 'Open flight deck');
+  $('expand').title = mode === 'inline' ? 'Back to chat' : 'Open flight deck';
   renderMap();
 }
 
@@ -651,8 +713,8 @@ if (isPreview) {
   };
   app.ontoolcancelled = () => notify('The host cancelled this request. No new work has been reported.');
   app.onhostcontextchanged = applyHostContext;
-  app.onteardown = async () => { state.tornDown = true; stopPolling(); swarmField.destroy(); projectWorkspace.destroy(); return {}; };
+  app.onteardown = async () => { state.tornDown = true; stopPolling(); artifactStream.stop(); swarmField.destroy(); projectWorkspace.destroy(); return {}; };
   const connectingNotice = setTimeout(() => { if (!state.connected) notify('Still waiting for the chat bridge. This view cannot deploy until the host connects.'); }, 8000);
-  app.onclose = () => { stopPolling(); state.connected = false; state.canMessage = false; render(); };
+  app.onclose = () => { stopPolling(); artifactStream.stop(); state.streamConnected = false; state.connected = false; state.canMessage = false; render(); };
   app.connect(undefined, { timeout: 12000 }).then(() => { clearTimeout(connectingNotice); state.connected = true; state.canMessage = !!app.getHostCapabilities()?.message?.text; applyHostContext(app.getHostContext() || {}); render(); schedulePoll(0); }).catch(() => { clearTimeout(connectingNotice); state.connected = false; notify('The chat bridge could not connect. Reopen Heart of Gold from the conversation.', 'error'); render(); });
 }

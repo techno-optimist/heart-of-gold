@@ -16,3 +16,18 @@ export function flightFieldState(snapshot, flightId, selectedId) {
   });
   return { nodes, runId: flightId || 'legacy-flight-snapshot', status: FLIGHT_STATUS[snapshot.status] || 'queued', selectedNode: selectedId || null };
 }
+
+/** Presentation intent only: source-backed construction starts when a project arrives. */
+export function awaitingProjectSource(snapshot) {
+  if (!snapshot || snapshot.status !== 'working' || snapshot.project) return false;
+  const mission = typeof snapshot.mission === 'string' ? snapshot.mission : '';
+  const deliverable = typeof snapshot.deliverable === 'string' ? snapshot.deliverable : '';
+  const appBuild = /\b(?:build|create|implement|develop|code|make|ship)\b[^.!?\n]{0,160}\b(?:app(?:lication)?|web\s*app|website|web\s*page|landing\s*page|frontend|front-end|user interface|ui|dashboard|component|prototype)\b/i;
+  const discussion = /^\s*(?:research|investigate|explain|compare|analy[sz]e|evaluate|assess|discuss|plan|review|explore|recommend|summari[sz]e|debate|outline)\b/i;
+  const concreteApp = /\b(?:runnable|working|functional|interactive)\b[^.!?\n]{0,80}\b(?:app(?:lication)?|website|web\s*page|dashboard|prototype)\b/i;
+  if ((!discussion.test(mission) && appBuild.test(mission)) || (!discussion.test(deliverable) && (appBuild.test(deliverable) || concreteApp.test(deliverable)))) return true;
+  return (Array.isArray(snapshot.members) ? snapshot.members : []).some(member => {
+    const assignment = `${member.task || ''} ${member.output || ''}`;
+    return !discussion.test(assignment) && /\b(?:implement|write|create|build|modify)\b[^.!?\n]{0,160}(?:\b[\w/-]+\.(?:html|css|js|jsx|ts|tsx)\b|\b(?:html|css|javascript)\s+(?:files?|source|code)\b)/i.test(assignment);
+  });
+}
