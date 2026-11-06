@@ -358,3 +358,88 @@ input,select,.role-form textarea,.mission-settings textarea{display:block;max-wi
 
 /* A finished project is fully usable; contribution inspection remains in Crew and Source. */
 .deck:is([data-phase=complete],[data-phase=partial]) .component-overlay{display:none}
+
+/* Before an app's first source receipt, show reported crew state without construction motion. */
+.deck[data-preparing-project=true] .star-map,.deck[data-preparing-project=true] .field-meta,.deck[data-preparing-project=true] .transmission{display:none}
+.project-preparation{position:absolute;z-index:4;inset:145px 32px 150px;padding:18px 20px;overflow:auto;overscroll-behavior:contain;border-top:1px solid var(--rule)}
+.project-preparation h2{font:500 38px/1.1 var(--serif);color:var(--gold);margin:0 0 8px}
+.project-preparation>p{font:10px/1.5 var(--mono);color:var(--muted);margin:0 0 16px}
+#preparation-crew{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0 24px}
+.preparation-member{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;min-height:36px;border-top:1px solid var(--rule)}
+.preparation-identity{min-width:0;display:flex;flex-direction:column;padding:5px 0;gap:2px}
+.preparation-identity strong{font:500 11px/1.3 var(--sans);color:var(--ivory)}
+.preparation-identity>span{font:10px/1.3 var(--sans);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.preparation-status{font:8px/1.3 var(--mono);color:var(--gold);flex-shrink:0}
+.deck:not([data-display=fullscreen]) .project-preparation{inset:28px 12px 48px;padding:12px}
+.deck:not([data-display=fullscreen]) .project-preparation h2{font-size:30px;margin-bottom:5px}
+.deck:not([data-display=fullscreen]) .project-preparation>p{font-size:9px;margin-bottom:12px}
+@media(max-width:420px){.project-preparation{left:16px;right:16px;padding:14px}#preparation-crew{grid-template-columns:minmax(0,1fr)}}
+
+/* Canvas mode: two quiet rails frame the authored project. */
+#deck[data-has-project=true]{--void:#0b0a08;--raised:#15130f;--rule:rgba(231,217,187,.12);--strong-rule:rgba(231,217,187,.22);--muted:#aaa18d}
+#deck[data-has-project=true]>.masthead{height:44px;min-height:44px;flex:0 0 44px;padding:0 12px;gap:12px;border-bottom:1px solid var(--rule)}
+#deck[data-has-project=true] .masthead .brand{font-size:21px;gap:5px;flex-shrink:0;order:0}
+#deck[data-has-project=true] .masthead .brand-mark{width:21px;height:21px}
+#deck[data-has-project=true] .masthead .experiment-name{display:none}
+#deck[data-has-project=true] .masthead nav{order:2;gap:0;margin-left:0;flex-shrink:0}
+#deck[data-has-project=true] .masthead #expand{height:44px;min-width:44px;width:44px;max-width:44px;border:0;background:transparent;padding:0;font-size:0}
+#deck[data-has-project=true] .masthead #expand::after{content:'⤢';font:20px var(--sans);color:var(--gold)}
+#deck[data-has-project=true][data-display=fullscreen] .masthead #expand::after{content:'↙'}
+#deck[data-has-project=true] .masthead .scene-state{position:static;order:1;flex:1;min-width:0;height:auto;display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:0;padding:0}
+#deck[data-has-project=true] .masthead .scene-state>div{display:block;width:100%;max-width:none;min-width:0;flex:none}
+#deck[data-has-project=true] .masthead .scene-state .eyebrow{display:none}
+#deck[data-has-project=true] .masthead .scene-state h2{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:400 10px/1.3 var(--sans);color:var(--ivory);margin:0;letter-spacing:0}
+#deck[data-has-project=true] .masthead .run-state{display:flex;flex-direction:row;align-items:center;align-self:flex-start;gap:8px;margin:0;padding:0;border:0;white-space:nowrap;font:7px/1.2 var(--mono);letter-spacing:0;max-width:100%}
+#deck[data-has-project=true] .masthead .receipt-age{font-size:7px;max-width:100px}
+#deck[data-has-project=true]>.flight-deck{flex:1 1 auto;height:auto;min-height:0}
+#deck[data-has-project=true] .project-workspace{inset:0;min-height:0;border:0;border-radius:0;box-shadow:none;background:var(--void)}
+#deck[data-has-project=true] .project-workspace[data-project-mode=preview]>.project-heading{display:none}
+#deck[data-has-project=true] .project-body{order:2}
+#deck[data-has-project=true] .project-heading{order:1}
+#deck[data-has-project=true] .project-toolbar{order:3;flex:0 0 44px;min-height:44px;padding:0 12px;gap:16px;border-top:1px solid var(--rule);border-bottom:0;position:relative;z-index:6}
+#deck[data-has-project=true] .project-tabs{gap:18px}
+#deck[data-has-project=true] .project-tabs button{font-size:10px;border-bottom:0;min-height:44px}
+#deck[data-has-project=true] .project-tabs button[aria-selected=true]{color:var(--ivory);box-shadow:inset 0 -1px var(--gold)}
+#deck[data-has-project=true] #component-live{display:none}
+#deck[data-has-project=true] #project-crew-slot{margin-left:auto;display:flex;align-items:center}
+#deck[data-has-project=true] #project-crew-slot button{font-size:10px;min-height:44px;white-space:nowrap}
+#deck[data-has-project=true] .field-tools{display:none}
+#deck[data-has-project=true] .project-preview-toolbar{height:0;min-height:0;flex:0 0 0;padding:0;position:relative;z-index:4}
+#deck[data-has-project=true] #project-preview-status{display:none}
+#deck[data-has-project=true] #project-preview-status[data-error=true]{display:block;position:absolute;inset:0 0 auto;max-height:64px;overflow:auto;margin:0;padding:7px 10px;background:#241b12ed;font:9px/1.5 var(--mono)}
+#deck[data-has-project=true] .project-preview-frame-slot{min-height:0}
+#deck[data-has-project=true] .project-preview-warning{max-height:40px;font-size:8px;flex-shrink:0}
+#deck[data-has-project=true] #component-missing{display:none}
+#deck[data-has-project=true] .mission-dock{z-index:7;bottom:48px;max-height:calc(100% - 60px)}
+#deck[data-has-project=true]:is([data-phase=working],[data-phase=complete],[data-phase=partial]) #mission-composer{display:none}
+#deck[data-has-project=true]:is([data-phase=working],[data-phase=complete],[data-phase=partial]) .mission-dock:not(:has(.notice:not([hidden]),.pending-snapshot:not([hidden]))){display:none}
+.project-tools{position:relative;flex:0 0 44px;margin:0}
+.project-tools>summary{list-style:none;display:flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;cursor:pointer;font:20px/1 var(--sans);color:var(--muted)}
+.project-tools>summary::-webkit-details-marker{display:none}
+.project-tools>summary:hover,.project-tools[open]>summary{color:var(--gold)}
+.project-tools>summary:focus-visible{outline:1px solid var(--gold);outline-offset:-5px}
+.project-tools-menu{position:absolute;bottom:48px;right:-4px;width:210px;max-height:min(330px,calc(var(--inline-height,420px) - 100px));overflow:auto;overscroll-behavior:contain;padding:6px 12px;background:#15130ff5;border:1px solid var(--strong-rule);box-shadow:0 12px 36px #0005;display:flex;flex-direction:column;align-items:stretch}
+#deck[data-has-project=true] .project-tools-menu button{position:static;flex:none;margin:0;width:100%;max-width:none;min-width:0;min-height:44px;padding:0 4px;font:11px/1.4 var(--sans);text-align:left;white-space:normal;display:block;border:0;border-bottom:1px solid var(--rule)}
+#deck[data-has-project=true] .project-tools-menu button:last-child{border-bottom:0}
+#deck[data-has-project=true] .project-tools-menu button::after{content:none}
+#deck[data-has-project=true] .project-tools-menu button:hover{color:var(--gold)}
+#deck[data-has-project=true] .component-cursor{gap:3px;max-width:125px}
+#deck[data-has-project=true] .component-cursor .cursor-shape{width:12px;height:16px}
+#deck[data-has-project=true] .component-cursor-tag{padding:3px 5px;border-color:transparent;background:#17130dd9;box-shadow:none;pointer-events:none}
+#deck[data-has-project=true] .component-cursor-name{font-size:9px;line-height:1.2}
+#deck[data-has-project=true] .component-cursor-label{display:none}
+#deck[data-has-project=true] .component-cursor:is(.is-held,:focus-visible) .component-cursor-label{display:block;font-size:8px}
+#deck[data-has-project=true] .component-cursor:is(.is-held,:focus-visible) .component-cursor-tag{border-color:var(--agent-color);background:#17130d}
+@media(max-width:420px){
+ #deck[data-has-project=true]>.masthead{padding:0 8px;gap:8px}#deck[data-has-project=true] .masthead .brand{font-size:19px;gap:4px}#deck[data-has-project=true] .masthead .brand-mark{width:19px;height:19px}
+ #deck[data-has-project=true] .masthead .scene-state h2{font-size:9px}#deck[data-has-project=true] .masthead .receipt-age{display:none}#deck[data-has-project=true] .masthead #work-counts{max-width:100%;font-size:7px}
+ #deck[data-has-project=true] .project-toolbar{padding:0 8px;gap:8px}#deck[data-has-project=true] .project-tabs{gap:9px}#deck[data-has-project=true] .project-tabs button,#deck[data-has-project=true] #project-crew-slot button{font-size:9px}
+}
+
+.project-tools:not([open])>.project-tools-menu{display:none}
+
+/* Crew identities stay readable independently of their reported status. */
+#crew-list>button{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'name status' 'role status';gap:3px 14px;padding:12px 14px;align-items:center}
+.crew-list-name{grid-area:name;font:500 13px/1.4 var(--sans);color:var(--ivory);overflow-wrap:anywhere}
+.crew-list-role{grid-area:role;font:11px/1.45 var(--sans);color:var(--muted);overflow-wrap:anywhere}
+.crew-list-status{grid-area:status;font:8px/1.4 var(--mono);color:var(--gold);white-space:nowrap;text-align:right}

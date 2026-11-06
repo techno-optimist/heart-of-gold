@@ -1,6 +1,6 @@
 import { App } from '@modelcontextprotocol/ext-apps';
 import { createSwarmField } from '../../../public/swarm-field.mjs';
-import { flightFieldState } from './swarm-adapter.mjs';
+import { flightFieldState, awaitingProjectSource } from './swarm-adapter.mjs';
 import { normalizeProject, createProjectWorkspace } from './project-preview.mjs';
 import { inlineFrameHeight } from './frame-size.mjs';
 
@@ -28,6 +28,24 @@ const projectWorkspace = createProjectWorkspace({ root: $('project-workspace'), 
   onRequestEdits: edits => sendToChat('Apply my source edits to this project and update the same flight deck.', () => ({ flightId: state.flight.id, writeToken: state.flight.writeToken, expectedRevision: state.flight.revision, requestedAction: 'apply_project_edits', ...edits, progressInstructions: 'Reconcile these local edited files with the latest project revision, preserve unrelated files, and report the actual resulting complete file set through update_project on this same flight. Do not claim a test passed unless it was run. Do not create another flight deck.' }), 'project_edit'),
   openLink: url => { if (app && state.connected) app.openLink({ url }).catch(() => notify('The host could not open this project link.', 'error')); else window.open(url, '_blank', 'noopener,noreferrer'); },
 });
+const presentationHomes = new Map(['open-crew', 'open-log', 'open-report', 'fork-plan', 'open-guide', 'mission-title'].map(id => {
+  const node = id === 'mission-title' ? $('mission-title').closest('.scene-state') : $(id);
+  return [id, { node, parent: node.parentElement }];
+}));
+function syncProjectPresentation(hasProject) {
+  const active = document.activeElement;
+  for (const [id, { node, parent }] of presentationHomes) {
+    const target = !hasProject ? parent : id === 'mission-title' ? document.querySelector('.masthead') : id === 'open-crew' ? $('project-crew-slot') : $('project-tools-menu');
+    if (node.parentElement !== target) target.append(node);
+  }
+  if (active instanceof HTMLElement && active !== document.activeElement && !document.querySelector('dialog[open]')) active.focus({ preventScroll: true });
+  if (!hasProject) $('project-tools').open = false;
+}
+$('project-tools').addEventListener('keydown', event => {
+  if (event.key === 'Escape' && $('project-tools').open) { event.preventDefault(); $('project-tools').open = false; $('project-tools').querySelector('summary').focus(); }
+});
+document.addEventListener('pointerdown', event => { if ($('project-tools').open && !$('project-tools').contains(event.target)) $('project-tools').open = false; });
+
 let displayedMission = '';
 let pollTimer;
 
@@ -131,7 +149,7 @@ function describeMilestone(previous, next) {
 }
 function syncFieldMotion() {
   const reportsUnavailable = !isPreview && (!state.connected || state.expired || state.cached || state.sync === 'reconnecting');
-  const pause = motionPaused || reportsUnavailable || !!state.snapshot?.project;
+  const pause = motionPaused || reportsUnavailable || !!state.snapshot?.project || awaitingProjectSource(state.snapshot);
   if (pause !== appliedMotionPause) { appliedMotionPause = pause; swarmField.setPaused(pause); }
   projectWorkspace.setMotionState({ paused: motionPaused || reportsUnavailable || document.hidden, userPaused: motionPaused, available: !reportsUnavailable });
 }
@@ -400,11 +418,29 @@ function renderInspector() {
   $('challenge-branch').disabled = state.busy || state.messageUnconfirmed || state.expired || state.cached || (!isPreview && (!state.connected || !state.canMessage || !state.flight?.writeToken));
 }
 
+function renderProjectPreparation(snapshot) {
+  const signature = JSON.stringify(snapshot.members.map(({ id, name, role, status }) => ({ id, name, role, status })));
+  if (state.preparationSignature === signature) return;
+  state.preparationSignature = signature;
+  $('preparation-crew').replaceChildren(...snapshot.members.map(member => {
+    const row = el('li', 'preparation-member');
+    const identity = el('span', 'preparation-identity');
+    identity.append(el('strong', '', member.name), el('span', '', member.role));
+    row.append(identity, el('span', 'preparation-status', member.status === 'planned' ? 'Queued' : label(member.status)));
+    return row;
+  }));
+}
+
 function render() {
   const snapshot = state.snapshot;
   $('deck').dataset.hasSnapshot = String(!!snapshot);
   $('deck').dataset.hasProject = String(!!snapshot?.project);
-  $('pause-motion').hidden = !!snapshot?.project;
+  syncProjectPresentation(!!snapshot?.project);
+  const preparingProject = awaitingProjectSource(snapshot);
+  $('deck').dataset.preparingProject = String(preparingProject);
+  $('project-preparation').hidden = !preparingProject;
+  $('pause-motion').hidden = !!snapshot?.project || preparingProject;
+  if (preparingProject) renderProjectPreparation(snapshot);
   syncFieldMotion();
   projectWorkspace.update(snapshot?.project || null, snapshot?.members || [], !state.busy && !state.messageUnconfirmed && !state.expired && !state.cached && state.connected && state.canMessage && !!state.flight?.writeToken, { baseline: state.projectHydration });
   $('deck').dataset.phase = snapshot?.status || 'idle';
@@ -627,6 +663,8 @@ function applyHostContext(context = {}) {
   const mode = state.hostContext.displayMode === 'fullscreen' ? 'inline' : 'fullscreen';
   $('expand').hidden = !state.connected || !state.hostContext.availableDisplayModes?.includes(mode);
   $('expand').textContent = mode === 'inline' ? 'Back to chat ↙' : 'Open flight deck ⤢';
+  $('expand').setAttribute('aria-label', mode === 'inline' ? 'Back to chat' : 'Open flight deck');
+  $('expand').title = mode === 'inline' ? 'Back to chat' : 'Open flight deck';
   renderMap();
 }
 

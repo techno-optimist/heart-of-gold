@@ -1,8 +1,8 @@
 # Persistent flight contract
 
-`build_crew` opens one deck with resource `ui://heart-of-gold/flight-deck-v10.html`. Quiet data tools update and read its temporary server state without rendering another card. The tools do not run the crew: report only work performed by this chat or actual host workers.
+`build_crew` opens one deck with resource `ui://heart-of-gold/flight-deck-v11.html`. Quiet data tools update and read its temporary server state without rendering another card. The tools do not run the crew: report only work performed by this chat or actual host workers.
 
-The v10 resource gives the compact presentation and terminal overlay dismissal a fresh host cache identity. Component overlays disappear when the flight is complete or partial, leaving project controls usable; Crew and Source retain contribution inspection. Earlier resource URIs remain readable, but refreshing tool metadata does not establish that an already rendered card has reloaded its HTML. Keep using the existing flight for work; do not create another card merely to refresh its appearance.
+The v11 resource gives the canvas-first presentation (UI revision 8.4) a fresh host cache identity. The default 420px inline frame leaves approximately 330px for the project between two compact control rails; smaller host limits still take precedence. Secondary controls sit in More, and app-build preparation shows reported crew state until the first source checkpoint. Component traces use geometry from their own source frame. These are source checkpoints, not keystroke streaming. Component overlays disappear when the flight is complete or partial, leaving project controls usable; Crew and Source retain contribution inspection. Earlier resource URIs remain readable, but refreshing tool metadata does not establish that an already rendered card has reloaded its HTML. Keep using the existing flight for work; do not create another card merely to refresh its appearance.
 
 ## `build_crew`
 

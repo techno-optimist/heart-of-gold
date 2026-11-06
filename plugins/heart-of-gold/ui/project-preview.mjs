@@ -165,12 +165,14 @@ export function createProjectWorkspace({ root, onInspectMember, onRequestEdits, 
     get('component-pause').setAttribute('aria-pressed', String(userPaused));
     for (const record of [activeFrame, pendingFrame]) sendToFrame(record, 'hog:component-motion', { allowed });
   }
-  function useGeometry(record) {
-    if (!record?.geometry || record !== activeFrame) return;
-    const missing = canvas.geometry(record.geometry, frameSlot.clientWidth, frameSlot.clientHeight);
+  function renderMissingComponents(missing) {
     get('component-missing').hidden = !missing.length;
     get('component-missing').textContent = `${missing.length} ${missing.length === 1 ? 'component' : 'components'} in Source ↗`;
     get('component-missing').dataset.path = missing[0]?.filePaths.find(path => project.files.some(file => file.path === path)) || '';
+  }
+  function useGeometry(record) {
+    if (!record?.geometry || record !== activeFrame) return;
+    renderMissingComponents(canvas.geometry(record.geometry, frameSlot.clientWidth, frameSlot.clientHeight));
   }
   function updateFrameRegistry(record) {
     if (!record || !project || record.renderKey !== projectRenderKey(project) || record.draft) return;
@@ -185,8 +187,8 @@ export function createProjectWorkspace({ root, onInspectMember, onRequestEdits, 
     activeFrame = record; pendingFrame = null; runningDraft = record.draft;
     record.element.classList.remove('is-pending'); record.element.removeAttribute('aria-hidden'); record.element.removeAttribute('inert'); record.element.removeAttribute('tabindex');
     if (previous) { previous.element.style.pointerEvents = 'none'; retiredFrames.add(previous.element); setTimeout(() => { previous.element.remove(); retiredFrames.delete(previous.element); }, canAnimate() ? 180 : 0); }
-    canvas.update(record.draft ? [] : record.project.components, members, record.draft || !canAnimate() ? [] : record.events);
-    useGeometry(record); syncMotion();
+    const missing = canvas.replaceFrame(record.draft ? [] : record.project.components, members, record.geometry, frameSlot.clientWidth, frameSlot.clientHeight, record.draft || !canAnimate() ? [] : record.events);
+    renderMissingComponents(missing); syncMotion();
     if (record.error) status(`Preview error: ${record.error}`, true);
     else status(record.draft ? 'Local draft preview · not applied to the project' : `Rendered reported files · revision ${record.project.revision}`);
   }

@@ -196,13 +196,31 @@ export function createComponentCanvas({ layer, onInspectMember, onSource }) {
   }
   function onReduced() { if (reduced.matches) stopEffects(); layer.dataset.reduced = String(reduced.matches); }
   reduced.addEventListener('change', onReduced); onReduced();
+  function acceptEvents(events) {
+    if (!events.length) return;
+    lastEvents = [...lastEvents, ...events].slice(-64);
+    if (!paused && !reduced.matches && !document.hidden) for (const event of events) pendingArrivals.set(event.componentId, { event, expiresAt: performance.now() + 2200 });
+  }
+  function setGeometry(payload, width, height) {
+    viewWidth = width; viewHeight = height;
+    rects = boundedComponentRects(payload, new Set(components.map(component => component.id)), width, height);
+    const missing = new Set(Array.isArray(payload?.missing) ? payload.missing : []);
+    return components.filter(component => missing.has(component.id));
+  }
   return {
     update(nextComponents, nextMembers, events = []) {
       components = nextComponents; members = nextMembers;
-      if (events.length) { lastEvents = [...lastEvents, ...events].slice(-64); if (!paused && !reduced.matches && !document.hidden) for (const event of events) pendingArrivals.set(event.componentId, { event, expiresAt: performance.now() + 2200 }); }
+      acceptEvents(events);
       render();
     },
-    geometry(payload, width, height) { viewWidth = width; viewHeight = height; rects = boundedComponentRects(payload, new Set(components.map(component => component.id)), width, height); render(); const missing = new Set(Array.isArray(payload?.missing) ? payload.missing : []); return components.filter(component => missing.has(component.id)); },
+    replaceFrame(nextComponents, nextMembers, payload, width, height, events = []) {
+      // A repeated component ID does not make geometry from another source
+      // frame valid. Commit the new frame's bounds before accepting receipts.
+      stopEffects(); components = nextComponents; members = nextMembers;
+      const missing = setGeometry(payload, width, height);
+      acceptEvents(events); render(); return missing;
+    },
+    geometry(payload, width, height) { const missing = setGeometry(payload, width, height); render(); return missing; },
     setPaused(value) { paused = !!value; layer.dataset.paused = String(paused); if (paused) stopEffects(); },
     clear() { components = []; rects.clear(); stopEffects(); render(); },
     destroy() { stopEffects(); reduced.removeEventListener('change', onReduced); for (const cursor of cursors.values()) cursor.button.remove(); for (const box of regions.values()) box.remove(); },

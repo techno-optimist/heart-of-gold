@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { Script } from 'node:vm';
 import { normalizeProject, resolveProjectPath, buildPreviewDocument, changedProjectFiles, safeProjectLink } from '../plugins/heart-of-gold/ui/project-preview.mjs';
+import { awaitingProjectSource } from '../plugins/heart-of-gold/ui/swarm-adapter.mjs';
 import { componentEventsSince, boundedComponentRects, sanitizedComponentGeometry, projectRenderKey, installComponentProbe } from '../plugins/heart-of-gold/ui/component-canvas.mjs';
 
 const fixture = () => ({ revision: 2, title: 'Authored test project', entrypoint: 'index.html', files: [
@@ -154,4 +155,22 @@ test('hidden pending preview reports readiness even when animation frames never 
   listeners.get('DOMContentLoaded')();
   assert.ok(messages.some(message => message.type === 'hog:project-ready' && message.nonce === 'hidden-frame'));
   assert.ok(messages.some(message => message.type === 'hog:component-geometry'));
+});
+
+test('working app builds wait for source while plans and non-build missions keep the crew field', () => {
+  const flight = { status: 'working', mission: 'Build a useful Towelboard web app with a native crew.', deliverable: '', members: [] };
+  assert.equal(awaitingProjectSource(flight), true);
+  assert.equal(awaitingProjectSource({ ...flight, status: 'planned' }), false);
+  assert.equal(awaitingProjectSource({ ...flight, status: 'complete' }), false);
+  assert.equal(awaitingProjectSource({ ...flight, project: fixture() }), false);
+  assert.equal(awaitingProjectSource({ ...flight, mission: 'Research how to build a web app.' }), false);
+  assert.equal(awaitingProjectSource({ ...flight, mission: 'Build a welcoming open-source community.', members: [{ role: 'Builder', task: 'Develop a practical solution using the available evidence.', output: 'A concrete proposed deliverable.' }] }), false);
+  assert.equal(awaitingProjectSource(null), false);
+});
+
+test('concrete app deliverables and source implementation contracts identify preparation without invented ownership', () => {
+  const flight = { status: 'working', mission: 'Make Towelboard.', members: [] };
+  assert.equal(awaitingProjectSource({ ...flight, deliverable: 'A runnable task-board application.' }), true);
+  assert.equal(awaitingProjectSource({ ...flight, members: [{ task: 'Implement the task entry component in entry.js.', output: 'The authored source file.' }] }), true);
+  assert.equal(awaitingProjectSource({ ...flight, members: [{ task: 'Review entry.js for correctness.', output: 'Ranked review findings.' }] }), false);
 });
