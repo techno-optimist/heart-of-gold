@@ -7,8 +7,8 @@ Use a dedicated directory containing only the public or synthetic artifact autho
 ## Start from the lead
 
 1. Create the actual shell and component runtime contract. Publish the shell on the existing flight. Give workers disjoint owned paths and stable component IDs; preserve the user's scope.
-2. Register their actual returned IDs and working status, then call `open_artifact_stream` as the lead with the approved bindings. Use the same bindings in a lead-owned manifest **outside** the watched directory. Keep all capabilities away from workers.
-3. Start the watcher with the minted connection on standard input, then let the workers perform real incremental saves. Atomic temp-file-and-rename saves are preferred. Temporary files are not uploaded unless explicitly allowed.
+2. Initialize workers with a bounded interface/ownership confirmation before substantive component edits. Register their actual returned IDs and observed status, then call `open_artifact_stream` as the lead with the approved bindings. Use the same bindings in a lead-owned manifest **outside** the watched directory. Keep all capabilities away from workers.
+3. Start the watcher with the minted connection on standard input and wait for its authenticated connection receipt. Then dispatch/resume the component builders together and let real incremental saves flow. Atomic temp-file-and-rename saves are preferred. Temporary files are not uploaded unless explicitly allowed.
 4. Observe an accepted file hash/revision before its worker returns. This establishes independent file observation in that particular host. Actual author identity still comes from the lead's ownership assignment; a filesystem watcher cannot establish which model or process authored bytes.
 5. Stop workers or finish their writes, flush the bridge, then report completion and run actual checks against the resulting source digest. The bridge never invents a passing check.
 
@@ -17,6 +17,10 @@ The dependency-free command is:
 ```sh
 node scripts/watch-project.mjs --root /absolute/dedicated-artifacts --manifest /absolute/lead-owned-bindings.json
 ```
+
+The CLI honors an existing HTTP(S) proxy using Node's built-in proxy support when available (Node 22.21+ or 24+), without changing the host configuration or printing proxy values. Explicit proxy opt-outs remain respected. A proxy-requiring host with an unsupported Node version receives an upgrade error. Library callers must configure their own fetch transport or launch Node with the appropriate proxy support. See [Node proxy configuration](https://nodejs.org/en/learn/http/enterprise-network-configuration).
+
+Startup connection success establishes endpoint reachability and the scoped capability, not source delivery. Only an `artifact.accepted` receipt for an actual changed file establishes that a save arrived. Never create or replay a fake edit to manufacture that evidence.
 
 In the plugin archive, the same command lives at `skills/deploy-drive/scripts/watch-project.mjs`; its import resolves to `../lib/project-watcher.mjs` within that skill. The manifest contains only bindings:
 

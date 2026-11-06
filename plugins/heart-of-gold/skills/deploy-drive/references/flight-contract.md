@@ -108,11 +108,13 @@ The tool does not execute submitted code, run checks, fetch links, install depen
 
 The response includes `artifactToken`, `ingestUrl`, `eventsUrl`, `projectRevision`, `scopedFiles`, and `expiresAt`. Retain these privately. A new mint rotates the prior artifact capability. It can write only its bound files and expires with the flight. It cannot change the crew, plan, provider credentials, or deployment. Put the lead-owned manifest and private connection data outside the watched directory.
 
-The packaged `scripts/watch-project.mjs` reads one connection JSON object from stdin and watches only the manifest's exact paths under `--root`, with bounded debouncing and a periodic recovery scan. It sends credentialless JSON POST requests to the fixed `ingestUrl`:
+The packaged `scripts/watch-project.mjs` reads one connection JSON object from stdin, verifies its connection with an authenticated empty batch, and watches only the manifest's exact paths under `--root`, with bounded debouncing and a periodic recovery scan. It sends credentialless JSON POST requests to the fixed `ingestUrl`:
 
 ```json
 {"flightId":"…","artifactToken":"…","expectedProjectRevision":1,"batchId":"unique-batch-id","upserts":[{"path":"entry.html","content":"exact saved bytes"}],"deletePaths":[]}
 ```
+
+The startup empty batch produces `bridge.connected` without advancing source revision or emitting a component change. A real changed-file acceptance remains necessary to establish source delivery. Let builders start after this connection succeeds. The CLI can inherit an existing HTTP(S) proxy on supported Node versions while preserving explicit opt-outs; it does not configure a new proxy or weaken TLS.
 
 Writes compare the project revision, independently of crew-status revisions. Repeated identical batches are idempotent. A conflict returns only scoped current hashes and the current project revision; the bridge may reconcile unrelated changes but stops rather than overwrite an externally changed bound file. Invalid JavaScript is still accepted as source. Checks are cleared on edits. Actual changed hashes derive component receipts; no caller-provided event history is accepted.
 

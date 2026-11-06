@@ -1,10 +1,10 @@
 # Plugin review dossier
 
-Package: `heart-of-gold` `0.7.0`. Publisher label: ProjectForty2. Source: [techno-optimist/heart-of-gold](https://github.com/techno-optimist/heart-of-gold). Remote server: `https://projectforty2.ai/heartofgold/mcp`. No provider login; private flight capabilities protect temporary state. Public directory approval: **not established by this dossier**.
+Package: `heart-of-gold` `0.7.1`. Publisher label: ProjectForty2. Source: [techno-optimist/heart-of-gold](https://github.com/techno-optimist/heart-of-gold). Remote server: `https://projectforty2.ai/heartofgold/mcp`. No provider login; private flight capabilities protect temporary state. Public directory approval: **not established by this dossier**.
 
 This document separates a prepared review package from observed installation, operation, and approval. Do not turn an automated test pass into a claim that ChatGPT installation, embedded rendering, or public submission succeeded.
 
-Earlier receipts establish only their recorded versions. Candidate 0.7.0 uses resource v12 and UI revision 8.5, with a sixth data-only tool (`open_artifact_stream`) and a bundled dependency-free watcher. Its new path must be qualified independently of checkpoint-only releases.
+Earlier receipts establish only their recorded versions. Candidate 0.7.1 uses resource v12 and UI revision 8.5, with a sixth data-only tool (`open_artifact_stream`) and a bundled dependency-free watcher. Its new path must be qualified independently of checkpoint-only releases.
 
 Acceptance must show real concurrent workers saving their own files while the bridge is active, source arriving without lead `update_project` calls, independent component mounts, last-valid retention after an incomplete controller, reconnect without replay, preserved interaction state, and actual mouse interaction after terminal overlays disappear. Record the loaded UI revision and 420px container height. The native app preview remains network-disabled; only the parent widget connects to the exact artifact origin. A local host test does not establish ChatGPT sandbox or account acceptance. Preserve that distinction in release receipts.
 

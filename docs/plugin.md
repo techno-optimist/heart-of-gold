@@ -2,7 +2,7 @@
 
 A small crew for real work. One flight deck stays in the chat while the host builds: actual source files, crew contributions, checks, and synthesis arrive in that same card. ProjectForty2's MCP service holds the latest supplied state; the host's tools perform the work.
 
-This is the `0.7.0` plugin candidate with UI revision 8.5 and resource v12. It adds an optional same-workspace saved-file bridge and independent component mounting. Source changes, deployment, account installation, and public-directory approval are distinct milestones; this document does not establish live acceptance. See [review and verification gates](plugin-review.md).
+This is the `0.7.1` plugin candidate with UI revision 8.5 and resource v12. It adds an optional same-workspace saved-file bridge and independent component mounting. Source changes, deployment, account installation, and public-directory approval are distinct milestones; this document does not establish live acceptance. See [review and verification gates](plugin-review.md).
 
 The deck stays within its 420px inline frame, leaving approximately 330px for the project. Each accepted component edit can update without resetting unrelated app state. Temporarily invalid controllers remain visible in Source while preview retains the last valid component. Complete and partial flights clear construction overlays. Hosts without a persistent shared workspace use explicitly reported source checkpoints.
 
@@ -106,7 +106,7 @@ Official guidance explains that imported MCP declarations can produce a Desktop-
 2. Build an account-specific archive from the repository root, replacing the example argument with your registered app ID:
 
    ```sh
-   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.7.0
+   node scripts/package-personal-plugin.mjs YOUR_REGISTERED_APP_ID ../heart-of-gold-personal.zip 0.7.1
    ```
 
 3. In ChatGPT **Plugins → + → Upload archive**, upload this private ZIP, or use the existing personal plugin's update action. Inspect the imported details and select **Install plugin** when available. Start setup or a new Work chat and verify the skill and connected tools. Account/workspace policies still apply.
@@ -145,7 +145,7 @@ The portable package uses the Agent Plugins `1.0.0` schemas, with OpenAI listing
 Create a release archive from the repository root with Node 22+ and Python 3 (standard library only):
 
 ```sh
-node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.7.0.zip
+node scripts/package-plugin.mjs ../heart-of-gold-plugin-0.7.1.zip
 ```
 
 The ZIP has `plugin.json` and `mcp.json` directly at its root, alongside `LICENSE`, `skills/`, and `assets/`. It excludes the website, UI source/build output, marketplace catalog, dependencies, and local data. The packager rejects symlinks, unreviewed file types, missing referenced assets, and common credential/private-path patterns; it verifies the archive and prints its SHA-256. Identical source files produce identical ZIP bytes. These checks do not replace source review or the platform's own validation. Creating the ZIP does not install, upload, submit, or approve it.
