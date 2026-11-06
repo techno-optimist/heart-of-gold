@@ -33,7 +33,15 @@ async function fixture(t, paths = ['index.html']) {
   t.after(async () => { await watcher?.stop({ flush: false }); await rm(directory, { recursive: true, force: true }); });
   return { directory, root, receipts, calls, remote, response, accept,
     setRevision(value) { revision = value; },
-    async start(extra = {}) { watcher = await watchProject({ root, manifest: manifest(paths), connection: connection(), fetchImpl, onReceipt: row => receipts.push(row), timing, ...extra }); return watcher; },
+    async start(extra = {}) {
+      const { fetchImpl: customFetch = fetchImpl, probeFetchImpl, ...options } = extra;
+      const fetchWithProbe = (url, init) => {
+        const payload = JSON.parse(init.body);
+        if (!payload.upserts.length && !payload.deletePaths.length) return probeFetchImpl ? probeFetchImpl(url, init) : accept(payload);
+        return customFetch(url, init);
+      };
+      watcher = await watchProject({ root, manifest: manifest(paths), connection: connection(), fetchImpl: fetchWithProbe, onReceipt: row => receipts.push(row), timing, ...options }); return watcher;
+    },
   };
 }
 
@@ -55,6 +63,36 @@ test('streams exact genuine saves including malformed code, UTF-8 and BOM; ignor
   assert(!JSON.stringify(f.receipts).includes(token));
   assert(!JSON.stringify(f.receipts).includes('ctx.state'));
   assert(f.receipts.some(row => row.files?.some(file => file.path === 'component.js' && file.sha256 === sha('(ctx) => { ctx.state.count = 1; }'))));
+});
+
+test('authenticated no-op connects before ready without publishing source or advancing the project', async t => {
+  const f = await fixture(t); const probes = [];
+  const watcher = await f.start({ probeFetchImpl: async (url, init) => {
+    const payload = JSON.parse(init.body); probes.push(payload);
+    return f.response({ updated: false, projectRevision: 0, sourceDigest: null, acceptedBatchId: payload.batchId, scopedFiles: [{ path: 'index.html', sha256: null }] });
+  } });
+  await watcher.flush();
+  assert.equal(probes.length, 1); assert.deepEqual(probes[0].upserts, []); assert.deepEqual(probes[0].deletePaths, []);
+  assert.deepEqual(f.receipts.slice(0, 2).map(row => row.event), ['bridge.connected', 'watch.ready']);
+  assert.equal(f.receipts[0].projectRevision, 0); assert.equal(f.calls.length, 0);
+  assert(!f.receipts.some(row => row.event === 'artifact.accepted'));
+  await writeFile(join(f.root, 'index.html'), '<main>A real subsequent save</main>'); await watcher.flush();
+  assert.equal(f.calls.length, 1); assert.equal(f.receipts.filter(row => row.event === 'artifact.accepted').length, 1);
+});
+
+test('startup probe retries the same empty batch and a rejected probe never announces ready', async t => {
+  const f = await fixture(t); const probes = [];
+  const watcher = await f.start({ probeFetchImpl: async (url, init) => {
+    const payload = JSON.parse(init.body); probes.push(payload);
+    if (probes.length === 1) throw new Error(`private ${token}`);
+    return f.accept(payload);
+  } });
+  assert.deepEqual(probes[0], probes[1]); assert.equal(probes[0].upserts.length, 0); await watcher.stop();
+  const rejected = await fixture(t);
+  const failed = await rejected.start({ probeFetchImpl: async () => rejected.response({ error: { message: token } }, 401) });
+  assert.equal((await failed.done).error.code, 'ARTIFACT_UNAVAILABLE');
+  assert(!rejected.receipts.some(row => ['watch.ready', 'bridge.connected', 'artifact.accepted'].includes(row.event)));
+  assert(!JSON.stringify([...f.receipts, ...rejected.receipts]).includes(token));
 });
 
 test('coalesces real bursts, enforces one in-flight request, then sends only the latest pending bytes', async t => {
@@ -155,7 +193,7 @@ test('expiry stops, remote messages stay private, and stop flushes final real by
   const watcher = await f.start(); await watcher.flush();
   await writeFile(join(f.root, 'index.html'), 'final'); const stopped = await watcher.stop();
   assert(stopped.ok); assert.equal(f.calls.at(-1).payload.upserts[0].content, 'final');
-  const expired = await f.start({ fetchImpl: async () => f.response({ error: { code: 'ARTIFACT_UNAVAILABLE', message: `secret ${token}` } }, 401) });
+  const expired = await f.start({ probeFetchImpl: async () => f.response({ error: { code: 'ARTIFACT_UNAVAILABLE', message: `secret ${token}` } }, 401) });
   const done = await expired.done; assert.equal(done.error.code, 'ARTIFACT_UNAVAILABLE'); assert(!JSON.stringify(f.receipts).includes(token));
 });
 
@@ -172,6 +210,9 @@ test('request timeout terminates with sanitized metadata and explicit stop abort
 
 test('CLI validates stdin without exposing credentials and package-relative import works', async t => {
   const f = await fixture(t); const manifestPath = join(f.directory, 'bindings.json'); await writeFile(manifestPath, JSON.stringify(manifest(['index.html'])));
-  const result = spawnSync(process.execPath, ['scripts/watch-project.mjs', '--root', f.root, '--manifest', manifestPath], { input: JSON.stringify(connection({ ingestUrl: `https://example.org/${token}` })), encoding: 'utf8' });
+  const env = { ...process.env, HTTPS_PROXY: 'http://local-test-private:credential@127.0.0.1:1' };
+  for (const key of ['https_proxy', 'NODE_USE_ENV_PROXY', 'NODE_OPTIONS']) delete env[key];
+  const result = spawnSync(process.execPath, ['scripts/watch-project.mjs', '--root', f.root, '--manifest', manifestPath], { input: JSON.stringify(connection({ ingestUrl: `https://example.org/${token}` })), env, encoding: 'utf8', timeout: 5000 });
   assert.equal(result.status, 1); assert(!result.stdout.includes(token)); assert(!result.stderr.includes(token)); assert.match(result.stdout, /INVALID_CONNECTION/);
+  assert(!`${result.stdout}${result.stderr}`.includes('local-test-private'));
 });

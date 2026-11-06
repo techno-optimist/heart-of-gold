@@ -1,10 +1,34 @@
 #!/usr/bin/env node
 import { readFile, lstat } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { watchProject, validateWatcherPaths, ProjectWatcherError } from '../lib/project-watcher.mjs';
+import { spawn } from 'node:child_process';
+import { constants as osConstants } from 'node:os';
+import { watchProject, validateWatcherPaths, needsProxyBootstrap, ProjectWatcherError } from '../lib/project-watcher.mjs';
 
 const usage = 'Usage: node scripts/watch-project.mjs --root <dedicated-artifact-directory> --manifest <lead-owned-manifest.json>\nPass the scoped artifact connection JSON on stdin. Never put its token in arguments or the watched directory.';
 const receipt = value => process.stdout.write(`${JSON.stringify(value)}\n`);
+async function restartWithProxy() {
+  // Inherit fd 0 untouched: the parent never reads, copies, or logs connection JSON.
+  const child = spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
+    stdio: 'inherit', env: { ...process.env, NODE_USE_ENV_PROXY: '1' },
+  });
+  let forwarded = false;
+  const forward = signal => { if (!forwarded) { forwarded = true; child.kill(signal); } };
+  const onInterrupt = () => forward('SIGINT');
+  const onTerminate = () => forward('SIGTERM');
+  process.on('SIGINT', onInterrupt); process.on('SIGTERM', onTerminate);
+  try {
+    await new Promise((resolve, reject) => {
+      child.once('error', () => reject(new ProjectWatcherError('PROXY_START_FAILED', 'The proxy-enabled watcher could not start. Check the Node installation and retry.')));
+      child.once('exit', (code, signal) => {
+        process.exitCode = code ?? (signal ? 128 + (osConstants.signals[signal] || 1) : 1);
+        resolve();
+      });
+    });
+  } finally {
+    process.removeListener('SIGINT', onInterrupt); process.removeListener('SIGTERM', onTerminate);
+  }
+}
 async function main() {
   const args = process.argv.slice(2);
   if (args.length === 1 && ['--help', '-h'].includes(args[0])) { console.log(usage); return; }
@@ -15,6 +39,7 @@ async function main() {
     values[args[index]] = args[index + 1];
   }
   if (!values['--root'] || !values['--manifest']) throw new ProjectWatcherError('INVALID_ARGUMENTS', usage);
+  if (needsProxyBootstrap()) { await restartWithProxy(); return; }
   const manifestPath = resolve(values['--manifest']);
   await validateWatcherPaths(values['--root'], manifestPath);
   const info = await lstat(manifestPath);
